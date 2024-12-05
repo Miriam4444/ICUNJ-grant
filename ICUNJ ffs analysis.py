@@ -6,7 +6,7 @@ import scipy as sci
 def open_file(file):
     # Load audio file using librosa
     audio_data_array, sr = lib.load(file, sr=None) 
-    #print(f"Audio data shape: {audio_data_array.shape}, Sample rate: {sr}")
+    print(f"Audio data shape: {audio_data_array.shape}, Sample rate: {sr}")
     #The function takes in a file and uses librosa to load the data and then returns the data as an array
     return audio_data_array
 
