@@ -39,11 +39,12 @@ def print_array(array , entries_to_print):
 def graph_data(array):
     # The function is going to take in the array of conjugates and plot the graph for the frequency vs magnitude (I think this is what im supposed to graph but im not positive because the complex part is a little bit scaring me:))
     array_length = np.arange(len(array))  # Create an array of indices (x-axis)
-    magnitude = np.abs(array)  # Get the magnitude of the complex numbers
+    real_parts = [num.real for num in array]
+    magnitude = np.abs(real_parts)  # Get the magnitude of the complex numbers
 
     # Plotting the magnitude vs index (or frequency in this case)
     plt.plot(array_length, magnitude)
-    plt.xlabel('Frequency')
+    plt.xlabel('entry number')
     plt.ylabel('Magnitude (I think its dB)')
     plt.title('graph of string pluck')
     plt.show()
