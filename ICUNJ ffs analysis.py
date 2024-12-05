@@ -1,6 +1,7 @@
 import librosa as lib
 import numpy as np
 import scipy as sci
+import matplotlib.pyplot as plt
 
 # Take in a file
 def open_file(file):
@@ -35,14 +36,31 @@ def print_array(array , entries_to_print):
     for i in range(entries_to_print): #prints the specified amount of entries
         print(array[i])
 
+def graph_data(array):
+    # The function is going to take in the array of conjugates and plot the graph for the frequency vs magnitude (I think this is what im supposed to graph but im not positive because the complex part is a little bit scaring me:))
+    array_length = np.arange(len(array))  # Create an array of indices (x-axis)
+    magnitude = np.abs(array)  # Get the magnitude of the complex numbers
 
-if __name__ == "__main__":
+    # Plotting the magnitude vs index (or frequency in this case)
+    plt.plot(array_length, magnitude)
+    plt.xlabel('Frequency')
+    plt.ylabel('Magnitude (I think its dB)')
+    plt.title('graph of string pluck')
+    plt.show()
+
+def file_directions(file):
+    #This function is going to carry out all the stuff that should be done for each file
     # Process the file once and store the result
-    audio_data = open_file(r"C:\Users\abeca\OneDrive\ICUNJ grant stuff\2S q 11-22-24.wav") #specify what file we're opening
+    audio_data = open_file(file) #specify what file we're opening
     fft_result = output_array(audio_data) #define the result of the fft
     print("here is an array of all of the complex numbers") #do the print statements for the array of the complex numbers
     print_array(fft_result, 10)
     conjugate_result = conjugate_array(fft_result) #Define the conjugate array result
     print("Here is an array of all the conjugates") #do the print statements for the array of the conjugates of the complex numbers array
     print_array(conjugate_result , 10)
+    graph_data(conjugate_result)
+
+
+if __name__ == "__main__":
+    file_directions(r"C:\Users\abeca\OneDrive\ICUNJ grant stuff\2S q 11-22-24.wav")
    
