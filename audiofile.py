@@ -37,7 +37,10 @@ class audiofile:
         self.fundamental = self.getfund()
 
         # convert power spectrum output data to dbfs (decibels full scale)
-        self.dbfs = self.dbconvert()
+        self.dbfs = self.dbfsconvert()
+
+        # convert PSD to dBV (decibel relative to 1 volt)
+        self.dbv = self.dbvconvert()
 
 
     ##########################################
@@ -71,7 +74,10 @@ class audiofile:
         F = 2*np.argmax(self.pspec[:self.sr//2 + 1])
         return F
 
-    def dbconvert(self):
+    # function to convert the PSD output to dBFS (decibel full scale)
+    # I believe it's currently wonky since it doesn't appear to agree with cakewalk's output, for example,
+    # but I'm also not sure what the vertical axis is in cakewalk.  My gut says it's dBV (decibels relative to 1 volt)
+    def dbfsconvert(self):
         rescaled = self.pspec*2/self.N
 
         # Convert to dBFS (decibels full scale)
@@ -79,20 +85,52 @@ class audiofile:
 
         return dbfs
 
+    # function to convert the PSD output to dBV (decibels re: 1 volt)
+    # to do this we need a reference voltage V0.
+    def dbvconvert(self):
+        # reference voltage - maybe we test some values to see what gets close to cakewalk's output?
+        # update: I looked back at the screenshot that had fundamental equal to 258 Hz (which is what
+        # our getfund method says is the fundamental of this signal) and it appeared to peak around
+        # 4 on the vertical axis in cakewalk.  So I very crudely guessed and checked with the V0 value
+        # until the output for 258 Hz is about +4.
+        V0 = 225
+
+        # compute dBV 
+        dbv = 20*np.log10(self.pspec/V0)
+
+        return dbv
+
+    # static version of the above function
+    @staticmethod
+    def staticdbvconvert(array):
+        # For the static version of this method we may want to allow for V0 as an input?
+        V0 = 225
+
+        # absolute value the input array so we don't blow up the log
+        A = np.abs(array)
+
+        # compute dBV 
+        dbv = 20*np.log10(A/V0)
+
+        return dbv
+
     # filter the psd data to cut out everything below a certain loudness (magthresh)
-    # and below a specified frequency (freqthresh)
-    def filterpsd(self,freqthresh,magthresh):
-        # create an array of zeroes followed by ones to filter below frequency threshold---this is currently in bins not Hz
-        Z = np.zeros(freqthresh)
-        oneslength = self.bins-freqthresh
+    # and below a specified frequency (freqthresh).  This method can definitely be improved by 
+    # allowing for only filtering of one kind or the other.
+    @staticmethod
+    def filtersignal(array,Fthresh,Athresh):
+        # create an array of zeroes followed by ones to filter below frequency threshold (Fthresh)
+        Z = np.zeros(Fthresh)
+        oneslength = len(array)-Fthresh
         Arr01 = np.ones(oneslength)
-        Arr01 = Z.append(Arr01)
+        Arr01 = np.concatenate((Z,Arr01))
 
         # zero out all array entries below the frequency threshold
-        filteredArr = Arr01*self.pspec
+        filteredArr = Arr01*array
 
-        for i in self.bins:
-            if self.pspec[i] < magthresh:
+        # zero out all array entries below the amplitude threshold (Athresh)
+        for i in range(len(array)):
+            if array[i] < Athresh:
                 filteredArr[i] = 0
 
         return filteredArr
@@ -121,18 +159,33 @@ class audiofile:
         plt.title('graph of string pluck')
         plt.show()
 
-    # function to plot the PSD data versus original bins
-    def graph_filterPSD(self, freqthresh, magthresh):
-        plt.plot(self.bins, self.filterpsd(freqthresh,magthresh))
-        plt.xlabel('entry number')
-        plt.ylabel('Magnitude of RFFT')
+    # function to plot the converted dbfs data vs freq3.  Not sure if this currently works.
+    def graph_dbv(self):
+        plt.plot(self.freq3, self.dbv)
+        plt.xlabel('frequency (Hz)')
+        plt.ylabel('dBV')
         plt.title('graph of string pluck')
+        plt.show()
+
+    # function to plot the PSD data versus original bins
+    @staticmethod
+    def graph_filtersignal(array, Fthresh, Athresh):
+        F = audiofile.filtersignal(array,Fthresh,Athresh)
+        plt.plot(np.arange(len(array)), F)
+        plt.xlabel('entry number')
+        plt.ylabel('signal')
+        plt.title('graph of filtered signal')
         plt.show()
 
 # test the class methods
 test = audiofile(r"C:\Users\spine\Downloads\2S q 11-22-24.wav")
 
-#test.graph_dbfs()
-test.printall()
-# test.graph_original()
-test.graph_filterPSD(1000,1)
+#test.graph_dbv()
+#test.printall()
+#test.graph_original()
+F = audiofile.filtersignal(test.fourier,1000,1)
+audiofile.graph_filtersignal(F, 1000, 1)
+
+F1 = audiofile.staticdbvconvert(F)
+plt.plot(np.arange(len(F1)), F1)
+plt.show()
