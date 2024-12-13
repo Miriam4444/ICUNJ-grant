@@ -73,6 +73,58 @@ class audiofile:
     def getfund(self):
         F = 2*np.argmax(self.pspec[:self.sr//2 + 1])
         return F
+    
+    # static version of the above.  This will take in an array and an integer samplerate
+    # and return 2*(array index corresp to maximum magnitude array value) 
+    @staticmethod
+    def staticgetfund(array, samplerate):
+        A = np.abs(array)
+        F = 2*np.argmax(A[:samplerate//2 + 1])
+        return F
+    
+
+    # static method for finding harmonics.  Basically the idea will be to find the fundamental of the input
+    # array, then determine an appropriate window size to hunt for the next harmonic spike, which we'll find
+    # by using the getfund method on the next window.  We'll find numberofharmonics number of these spikes.
+    @staticmethod
+    def harmonicfinder(array, samplerate, numberofharmonics):
+        # determine the fundamental of the input signal
+        f = audiofile.staticgetfund(array,samplerate)
+
+        # create an array to store the harmonics, initialized with zeros
+        H = np.zeros(numberofharmonics)
+
+        # set 0th harmonic array entry to the fundamental frequency
+        H[0] = f
+
+        # initialize a window of the array with zeros, length equal to the fundamental f
+        windowedArray = np.zeros(f)
+        
+            # filter the signal to the appropriate window size --- we may want a static method that does this for us
+            # the filtering will be done in such a way that we consider a frequency window that is f wide centered at i*f
+            # so if the signal's indices look like ______f_______2f_______3f_______4f_______ then our windows should look like this
+            #                                      ______f___|--------|___3f_______4f_______ and will ID the max in |--------| then
+            # move on to                           ______f_______2f___|--------|___4f_______ and ID the max there, and so on
+
+        for i in range(2,numberofharmonics):
+            # determine minimum frequency in the window
+            window_min = i*f - f//2
+
+            # populate filteredArray with array values living in the window
+            for k in range(0,f-1):
+                windowedArray[k] = array[window_min + k + 1]
+
+            # ID the spike in this window
+            spike = audiofile.staticgetfund(windowedArray,samplerate)
+
+            # convert the spike location back to frequencies for the original signal
+            #spike = spike + window_min
+
+            # set the (i-1)st element of the harmonic array to the fundamental in this window
+            H[i-1] = spike + window_min
+
+        return H
+            
 
     # function to convert the PSD output to dBFS (decibel full scale)
     # I believe it's currently wonky since it doesn't appear to agree with cakewalk's output, for example,
@@ -92,11 +144,21 @@ class audiofile:
         # update: I looked back at the screenshot that had fundamental equal to 258 Hz (which is what
         # our getfund method says is the fundamental of this signal) and it appeared to peak around
         # 4 on the vertical axis in cakewalk.  So I very crudely guessed and checked with the V0 value
-        # until the output for 258 Hz is about +4.
+        # until the output for 258 Hz is about +4.  However the other peaks in cakewalk are significantly higher than 
+        # the peaks we get from this scheme so I'm not sure
         V0 = 225
 
-        # compute dBV 
-        dbv = 20*np.log10(self.pspec/V0)
+        N = len(self.pspec)
+
+        # initialize dbv array of correct length with 1s
+        dbv = np.ones(N)
+
+        # compute dBV --- adding a conditional statement to avoid log(0)
+        for i in range(0,N):
+            if self.pspec[i] != 0:
+                dbv[i] = 20*np.log10(self.pspec[i]/V0)
+            else:
+                dbv[i] = -100 # should be -infinity so I made it a large negative.  Not sure how best to handle this.
 
         return dbv
 
@@ -109,8 +171,15 @@ class audiofile:
         # absolute value the input array so we don't blow up the log
         A = np.abs(array)
 
-        # compute dBV 
-        dbv = 20*np.log10(A/V0)
+        # initialize dbv array of correct length with 1s
+        dbv = np.ones(len(array))
+
+        # compute dBV --- adding a conditional statement to avoid log(0)
+        for i in range(0,len(array)):
+            if A[i] != 0:
+                dbv[i] = 20*np.log10(A[i]/V0)
+            else:
+                dbv[i] = -100 # should be -infinity so I made it a large negative.  Not sure how best to handle this.
 
         return dbv
 
@@ -130,7 +199,7 @@ class audiofile:
 
         # zero out all array entries below the amplitude threshold (Athresh)
         for i in range(len(array)):
-            if array[i] < Athresh:
+            if np.abs(array[i]) < Athresh:
                 filteredArr[i] = 0
 
         return filteredArr
@@ -159,7 +228,8 @@ class audiofile:
         plt.title('graph of string pluck')
         plt.show()
 
-    # function to plot the converted dbfs data vs freq3.  Not sure if this currently works.
+    # function to plot the converted dbv data vs freq3.  Not sure if this currently works.
+    # We should decide what minimum dbv value we want to consider.  
     def graph_dbv(self):
         plt.plot(self.freq3, self.dbv)
         plt.xlabel('frequency (Hz)')
@@ -176,16 +246,36 @@ class audiofile:
         plt.ylabel('signal')
         plt.title('graph of filtered signal')
         plt.show()
+############################################################################
+# END AUDIOFILE CLASS
+############################################################################
 
+
+
+############################################################################
 # test the class methods
+############################################################################
 test = audiofile(r"C:\Users\spine\Downloads\2S q 11-22-24.wav")
 
 #test.graph_dbv()
 #test.printall()
 #test.graph_original()
-F = audiofile.filtersignal(test.fourier,1000,1)
-audiofile.graph_filtersignal(F, 1000, 1)
+F = audiofile.filtersignal(test.pspec,100,10)
+audiofile.graph_filtersignal(F, 100, 10)
 
-F1 = audiofile.staticdbvconvert(F)
-plt.plot(np.arange(len(F1)), F1)
-plt.show()
+# right now we are seeing big residuals near 258 Hz because it was SO loud, and those residuals are
+# dominating any later, much quieter, spectrum frequencies... I think we want a LOCAL fundamental-finding function!
+# Meaning one that identifies fundamentals in little windows throughout the bins.  This seems complicated but
+# should be doable.  Some kind of sliding filter which applies the getfund method in the filter window.  
+# We need a static version of getfund to do this...
+#for i in range(0,len(F)):
+#    if F[i]>0:
+#        print(2*i, F[i])
+
+H = audiofile.harmonicfinder(F,test.sr,10)
+print(H)   
+
+#F1 = audiofile.staticdbvconvert(F)
+
+#plt.plot(np.arange(len(F1)), F1)
+#plt.show()
