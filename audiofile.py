@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import librosa as lib
+import scipy as sci
 
 class audiofile:
 
@@ -255,13 +256,53 @@ class audiofile:
 ############################################################################
 # test the class methods
 ############################################################################
+
+# initialize the test signal
 test = audiofile(r"C:\Users\spine\Downloads\2S q 11-22-24.wav")
 
 #test.graph_dbv()
 #test.printall()
 #test.graph_original()
-F = audiofile.filtersignal(test.pspec,100,10)
-audiofile.graph_filtersignal(F, 100, 10)
+#audiofile.graph_filtersignal(F, 100, 10)
+# peaks = np.array([f])
+# pw = sci.signal.peak_widths(F, peaks)
+# print(pw)
+
+#####################
+#                   #
+# THIS ONE IS COOL! #
+#  ______________   #
+#  \\  \    /  //   #
+#   \\  \  /  //    #
+#    \\  \/  //     # 
+#     \\    //      #
+#      \\  //       #
+#       \\//        #
+#        \/         #
+#                   #
+#####################
+# This is a function from scipy that finds peaks in data (exactly what we want!) and you can
+# specify that the peaks must be of a certain width of samples.  Here I'm using 5-60 samples 
+# as my width, and I've already filtered the signal to have the algorithm work less 
+# (high pass above 100 Hz and trimmed everything under magnitude 10 in the PSD)
+# then printed 2*peakindex/fundamental and it gives us some shockingly promising data!
+
+# Filter original signal to cut out freq below 100 Hz and magnitudes below 10
+F = audiofile.filtersignal(test.pspec,100,8)
+
+# Get fundamental of original signal
+f = audiofile.staticgetfund(test.pspec, test.sr)
+
+# scipy method designed to find peaks of an array.  We should write this whole thing as a method
+# in our class.  Nothing crazy, just something that automatically calculates this array of peaks
+# for each class instance and outputs the array converted to Hz as I've done below
+cwt_peaks = sci.signal.find_peaks_cwt(F, widths=np.arange(5, 60))
+
+# print the array of Hz where signal peaks
+print(2*cwt_peaks/f)
+
+
+
 
 # right now we are seeing big residuals near 258 Hz because it was SO loud, and those residuals are
 # dominating any later, much quieter, spectrum frequencies... I think we want a LOCAL fundamental-finding function!
@@ -272,8 +313,8 @@ audiofile.graph_filtersignal(F, 100, 10)
 #    if F[i]>0:
 #        print(2*i, F[i])
 
-H = audiofile.harmonicfinder(F,test.sr,10)
-print(H)   
+#H = audiofile.harmonicfinder(F,test.sr,10)
+#print(H)   
 
 #F1 = audiofile.staticdbvconvert(F)
 
