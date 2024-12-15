@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import librosa as lib
 import scipy as sci
+import statistics
 
 class audiofile:
 
@@ -188,23 +189,90 @@ class audiofile:
     # and below a specified frequency (freqthresh).  This method can definitely be improved by 
     # allowing for only filtering of one kind or the other.
     @staticmethod
-    def filtersignal(array,Fthresh,Athresh):
+    def filtersignal(array,loFthresh,hiFthresh,Athresh):
         # create an array of zeroes followed by ones to filter below frequency threshold (Fthresh)
-        Z = np.zeros(Fthresh)
-        oneslength = len(array)-Fthresh
+        Z = np.zeros(loFthresh)
+        oneslength = len(array)-loFthresh
         Arr01 = np.ones(oneslength)
         Arr01 = np.concatenate((Z,Arr01))
 
         # zero out all array entries below the frequency threshold
         filteredArr = Arr01*array
 
-        # zero out all array entries below the amplitude threshold (Athresh)
-        for i in range(len(array)):
-            if np.abs(array[i]) < Athresh:
-                filteredArr[i] = 0
+        if hiFthresh==None:
+            # zero out all array entries below the amplitude threshold (Athresh)
+            for i in range(len(array)):
+                if np.abs(array[i]) < Athresh:
+                    filteredArr[i] = 0
 
-        return filteredArr
+            return filteredArr
+
+        elif len(array)-hiFthresh < 0:
+            print("hiFthresh was ignored!  Maximum hiFthresh for this array is", len(array))
+            # zero out all array entries below the amplitude threshold (Athresh)
+            for i in range(len(array)):
+                if np.abs(array[i]) < Athresh:
+                    filteredArr[i] = 0
+
+            return filteredArr
+
+        else:
+            # initialize an array that will be 1s until hiFthresh
+            Arr02 = np.ones(hiFthresh)
+            # initialize an array of 0s the length of the array minus hiFthresh
+            Z2 = np.zeros(len(array)-hiFthresh)
+            # make an array that looks like [1,1,1,...,1,0,...,0] to filter above hiFthresh
+            Arr02 = np.concatenate((Arr02,Z2))
+
+            filteredArr = filteredArr*Arr02
+
+            # zero out all array entries below the amplitude threshold (Athresh)
+            for i in range(len(array)):
+                if np.abs(array[i]) < Athresh:
+                    filteredArr[i] = 0
+
+            return filteredArr
     
+    # method to compute a windowed median of the signal.  It will compute the median in each
+    # window of size windowsize and put each median value in an array, then average the median
+    # array values and return that average.  Currently detects high and low pass filters
+    # and applies this windowed median procedure to the nonzero part of the signal
+    @staticmethod
+    def staticwindowedmedian(array,windowsize):
+        # detect initial and trailing zeros
+        lopass, hipass = audiofile.detectzeros(array)
+
+        # find length of nonzero part of signal
+        signallength = len(array) - lopass - hipass
+
+        # initialize an array of 0s of the correct length
+        M = np.zeros(signallength//windowsize) 
+
+        for i in range(0,len(M)):
+            # populate array M with median of each window
+            M[i] = statistics.median(array[lopass + i*windowsize:(i+1)*windowsize-1])
+
+        return statistics.mean(M), statistics.stdev(M)
+
+    # static method that takes in an array and determines if there are leading or trailing
+    # zeros.  IDs a high- or low-passed signal.  Returns # of zeroes at beginning and end
+    @staticmethod
+    def detectzeros(array):
+        initialzeros = 0
+        trailingzeros = 0
+
+        for i in range(len(array)):
+            if array[i] != 0:
+                break
+            initialzeros = i-1
+        
+        for i in range(len(array)):
+            if array[len(array)-(i+1)] != 0:
+                break
+            trailingzeros = i
+
+        return initialzeros, trailingzeros
+
     # function to plot the raw rfft data
     def graph_original(self):
         plt.plot(self.bins, self.fourier)
@@ -287,8 +355,19 @@ test = audiofile(r"C:\Users\spine\Downloads\2S q 11-22-24.wav")
 # (high pass above 100 Hz and trimmed everything under magnitude 10 in the PSD)
 # then printed 2*peakindex/fundamental and it gives us some shockingly promising data!
 
-# Filter original signal to cut out freq below 100 Hz and magnitudes below 10
-F = audiofile.filtersignal(test.pspec,100,8)
+# Filter original signal to cut out freq below 100 Hz and magnitudes below 8
+# We should have a good reason for trimming the magnitudes we trim.
+# For instance, we should either cut every single signal at the same noise floor
+# or we should have a reasonable computation for the noise floor for each sample 
+# since they'll presumably vary in loudness so we might lose info from a uniform
+# noise floor, though they should all be *pretty* close in loudness...
+
+# pspec's indices are bins, not Hz so I'm inputting what Hz I want to filter out
+# and dividing by 2.  We could put this into the definition of our function instead
+F = audiofile.filtersignal(test.pspec,loFthresh=200//2,hiFthresh=10000//2,Athresh=8)
+
+# when we decide on our standardized filtering thresholds, we can write all these static methods as 
+# class methods and then just have the important values stored as class parameters
 
 # Get fundamental of original signal
 f = audiofile.staticgetfund(test.pspec, test.sr)
@@ -301,7 +380,11 @@ cwt_peaks = sci.signal.find_peaks_cwt(F, widths=np.arange(5, 60))
 # print the array of Hz where signal peaks
 print(2*cwt_peaks/f)
 
-
+# what is the mean of the bandpassed PSD? other statistical data?
+print("the median of the psd is ", statistics.median(F), 
+    "the mean of the psd is ", statistics.mean(F), 
+    " and the stdev is ", statistics.stdev(F),
+    "and the windowed median is ", audiofile.staticwindowedmedian(F,f//2))
 
 
 # right now we are seeing big residuals near 258 Hz because it was SO loud, and those residuals are
