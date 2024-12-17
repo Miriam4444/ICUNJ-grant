@@ -27,11 +27,9 @@ class audiofile:
         self.pspec = np.abs(self.fourier)
 
         # compute the corresponding frequencies of the rfft in Hz
-        # first uses the back-of-the-envelope calculation we think should work
-        # second uses the built-in rfft frequency calculator from numpy
+        # first uses the built-in rfft frequency calculator from numpy
         # third calculates by hand accounting for the rfft cutting the frequency bins in half
-        self.freq = np.arange(self.N)*self.sr/(self.N)
-        self.freq2 = np.fft.rfftfreq(len(self.pspec), 1/self.sr)
+        self.freq = np.fft.rfftfreq(len(self.fourier), 1/self.sr)
         self.freq3 = np.arange((self.N / 2) + 1)*self.sr/float(self.N)
 
         # identify fundamental as freq of largest coefficient in the power spectrum 
@@ -58,7 +56,7 @@ class audiofile:
         print("the power spectrum of the RFFT is", self.pspec)
 
     def printfreq(self):
-        print("the frequencies in Hz of the PDS are", self.freq)
+        print("the frequencies in Hz of the PDS are", self.freq3)
 
     def printfundamental(self):
         print("the fundamental frequency of the signal is", self.fundamental)
@@ -72,8 +70,33 @@ class audiofile:
 
     # function to identify frequency of largest magnitude entry in PSD.  
     # I believe we need to double it since rfft uses half the bins.  Need to check this against cakewalk data.
+    # Interesting problem has arisen now that I'm looking at other samples: the third harmonic appears to be 
+    # significantly louder than the first two, which is leading to the fundamental being incorrectly identified.
+    # We may want to alter this method so that it only hunts between 200 and 500 Hz for our fundamental since 
+    # we'll only tune our strings to that frequency range
     def getfund(self):
-        F = 2*np.argmax(self.pspec[:self.sr//2 + 1])
+        # initialize min and max indices to 0
+        min = 0
+        max = 0
+
+        # find first index where the frequency exceeds 200
+        for i in range(0, len(self.freq3)-1):
+            if self.freq3[i] >= 200:
+                min = i
+                break
+
+        # find first index where the frequency exceeds 600
+        for j in range(min,len(self.freq3)-1):
+            if self.freq3[j] >= 500:
+                max = j
+                break
+
+        # search for loudest frequency only between 200 and 300 Hz.  Will return relative to min=0.
+        F = np.argmax(self.pspec[min:max])
+
+        # convert PSD index back to Hz
+        F = self.freq3[F+min]
+
         return F
     
     # static version of the above.  This will take in an array and an integer samplerate
@@ -81,13 +104,14 @@ class audiofile:
     @staticmethod
     def staticgetfund(array, samplerate):
         A = np.abs(array)
-        F = 2*np.argmax(A[:samplerate//2 + 1])
+        F = (samplerate/len(array))*np.argmax(A[:samplerate//2 + 1])
         return F
     
 
     # static method for finding harmonics.  Basically the idea will be to find the fundamental of the input
     # array, then determine an appropriate window size to hunt for the next harmonic spike, which we'll find
     # by using the getfund method on the next window.  We'll find numberofharmonics number of these spikes.
+    # method is currently incomplete
     @staticmethod
     def harmonicfinder(array, samplerate, numberofharmonics):
         # determine the fundamental of the input signal
@@ -190,6 +214,9 @@ class audiofile:
     # allowing for only filtering of one kind or the other.
     @staticmethod
     def filtersignal(array,loFthresh,hiFthresh,Athresh):
+        loFthresh = int(loFthresh)
+        hiFthresh = int(hiFthresh)
+
         # create an array of zeroes followed by ones to filter below frequency threshold (Fthresh)
         Z = np.zeros(loFthresh)
         oneslength = len(array)-loFthresh
@@ -240,19 +267,26 @@ class audiofile:
     @staticmethod
     def staticwindowedmedian(array,windowsize):
         # detect initial and trailing zeros
-        lopass, hipass = audiofile.detectzeros(array)
+        hipass, lopass = audiofile.detectzeros(array)
+
+        windowsizeInt = int(windowsize)
 
         # find length of nonzero part of signal
         signallength = len(array) - lopass - hipass
 
-        # initialize an array of 0s of the correct length
-        M = np.zeros(signallength//windowsize) 
+        if signallength <= 0:
+            print("The input signal is all 0s!")
+            return 0, 0
 
-        for i in range(0,len(M)):
-            # populate array M with median of each window
-            M[i] = statistics.median(array[lopass + i*windowsize:(i+1)*windowsize-1])
+        else:
+            # initialize an array of 0s of the correct length
+            M = np.zeros(int(signallength/windowsizeInt)) 
 
-        return statistics.mean(M), statistics.stdev(M)
+            for i in range(0,len(M)-1):
+                # populate array M with median of each window
+                M[i] = statistics.median(array[hipass + i*windowsizeInt : (i+1)*windowsizeInt-1])
+
+            return statistics.mean(M), statistics.stdev(M)
 
     # static method that takes in an array and determines if there are leading or trailing
     # zeros.  IDs a high- or low-passed signal.  Returns # of zeroes at beginning and end
@@ -291,7 +325,7 @@ class audiofile:
 
     # function to plot the converted dbfs data vs freq3.  Not sure if this currently works.
     def graph_dbfs(self):
-        plt.plot(self.freq3, self.dbfs)
+        plt.plot(self.freq, self.dbfs)
         plt.xlabel('frequency (Hz)')
         plt.ylabel('dBFS')
         plt.title('graph of string pluck')
@@ -300,7 +334,7 @@ class audiofile:
     # function to plot the converted dbv data vs freq3.  Not sure if this currently works.
     # We should decide what minimum dbv value we want to consider.  
     def graph_dbv(self):
-        plt.plot(self.freq3, self.dbv)
+        plt.plot(self.freq, self.dbv)
         plt.xlabel('frequency (Hz)')
         plt.ylabel('dBV')
         plt.title('graph of string pluck')
@@ -326,7 +360,8 @@ class audiofile:
 ############################################################################
 
 # initialize the test signal
-test = audiofile(r"C:\Users\spine\Downloads\2S q 11-22-24.wav")
+test = audiofile(r"c:\Users\spine\OneDrive\Documents\Math\Research\Quantum Graphs\ICUNJ grant 2024-25\2S9CD02.wav")
+test2 = audiofile(r"C:\Users\spine\OneDrive\Documents\Math\Research\Quantum Graphs\ICUNJ grant 2024-25\1SCD01.wav")
 
 #test.graph_dbv()
 #test.printall()
@@ -364,28 +399,62 @@ test = audiofile(r"C:\Users\spine\Downloads\2S q 11-22-24.wav")
 
 # pspec's indices are bins, not Hz so I'm inputting what Hz I want to filter out
 # and dividing by 2.  We could put this into the definition of our function instead
-F = audiofile.filtersignal(test.pspec,loFthresh=200//2,hiFthresh=10000//2,Athresh=8)
+F = audiofile.filtersignal(test.pspec,loFthresh=test.fundamental-1,hiFthresh=20*test.fundamental+100,Athresh=8)
+F2 = audiofile.filtersignal(test2.pspec,test2.fundamental-1,hiFthresh=50*test2.fundamental+100,Athresh=0)
 
 # when we decide on our standardized filtering thresholds, we can write all these static methods as 
 # class methods and then just have the important values stored as class parameters
 
+# MATHEMATICAL WORK TO BE DONE: 
+# 1) we need to procedurally generate the Athresh by determining a reasonable estimate for a noise floor 
+# 2) we need to also procedurally generate the widths for the peak-finding function
+
 # Get fundamental of original signal
-f = audiofile.staticgetfund(test.pspec, test.sr)
+#f = audiofile.staticgetfund(test.pspec, test.sr)
+#f2 = audiofile.staticgetfund(test2.pspec, test2.sr)
+
+#print(f, f2)
+print(test.fundamental,test2.fundamental)
+
+
+test.printall()
 
 # scipy method designed to find peaks of an array.  We should write this whole thing as a method
 # in our class.  Nothing crazy, just something that automatically calculates this array of peaks
 # for each class instance and outputs the array converted to Hz as I've done below
-cwt_peaks = sci.signal.find_peaks_cwt(F, widths=np.arange(5, 60))
+cwt_peaks = sci.signal.find_peaks_cwt(F, widths=np.arange(5, 30))
+cwt_peaks2 = sci.signal.find_peaks_cwt(F2, widths=np.arange(5, 20))
+
+P = np.zeros(len(cwt_peaks))
+
+for i in range(0,len(cwt_peaks)):
+    P[i] = test.freq3[cwt_peaks[i]]
+
+P2 = np.zeros(len(cwt_peaks2))
+
+for i in range(0,len(cwt_peaks2)):
+    P2[i] = test2.freq3[cwt_peaks2[i]]
+
+print("the peaks of test1 are at", P/test.fundamental) 
+print("the peaks of test2 are at", P2/test2.fundamental)
 
 # print the array of Hz where signal peaks
-print(2*cwt_peaks/f)
+#print("the peaks of test1 are at", cwt_peaks/test.fundamental)
+#print("the peaks of test2 are at", cwt_peaks2/test2.fundamental)
 
 # what is the mean of the bandpassed PSD? other statistical data?
-print("the median of the psd is ", statistics.median(F), 
-    "the mean of the psd is ", statistics.mean(F), 
-    " and the stdev is ", statistics.stdev(F),
-    "and the windowed median is ", audiofile.staticwindowedmedian(F,f//2))
+#print("the median of the psd is ", statistics.median(F), 
+#    "the mean of the psd is ", statistics.mean(F), 
+#    " and the stdev is ", statistics.stdev(F),
+#    "and the windowed median is ", audiofile.staticwindowedmedian(F,f//2))
 
+#test2.printall()
+
+#plt.plot(np.arange(5000),F2[:5000])
+#plt.show()
+
+#print("the windowed median of test is ", audiofile.staticwindowedmedian(F,f//2))
+#print("the windowed median of test2 is ", audiofile.staticwindowedmedian(F2,f2//2))
 
 # right now we are seeing big residuals near 258 Hz because it was SO loud, and those residuals are
 # dominating any later, much quieter, spectrum frequencies... I think we want a LOCAL fundamental-finding function!
