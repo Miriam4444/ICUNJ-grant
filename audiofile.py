@@ -29,7 +29,7 @@ class audiofile:
         # compute the corresponding frequencies of the rfft in Hz
         # first uses the built-in rfft frequency calculator from numpy
         # third calculates by hand accounting for the rfft cutting the frequency bins in half
-        self.freq = np.fft.rfftfreq(len(self.fourier), 1/self.sr)
+        self.freq = np.fft.rfftfreq(len(self.source), 1/self.sr)
         self.freq3 = np.arange((self.N / 2) + 1)*self.sr/float(self.N)
 
         # identify fundamental as freq of largest coefficient in the power spectrum 
