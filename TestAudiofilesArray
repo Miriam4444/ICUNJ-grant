@@ -7,4 +7,5 @@ class TestAudiofilesArray:
     if __name__ == "__main__":
         #DirectoryName = Path(r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\ICUNJ-grant-audiofiles")
         nameArray = AudiofilesArray(Path(r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\ICUNJ-grant-audiofiles"))
-        print(nameArray.makeFileNameArray())
+        #print(nameArray.makeFilePathList())
+        print(nameArray.getSpecificType("1S"))
