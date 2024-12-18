@@ -9,7 +9,7 @@ class AudiofilesArray:
         #Path(r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\ICUNJ-grant-audiofiles")
 
     #This function goes through all of the files in a directory and adds them to a list
-    def makeFileNameArray(self):
+    def makeFilePathList(self):
         fileNames = [] #instantiates a list that we're going to use to store the file names
         #Iterate through all of the files in the directory
         for file_path in self.directory_path.iterdir():
@@ -19,3 +19,22 @@ class AudiofilesArray:
                 #file_path = os.path.basename(file_path)
                 fileNames.append(file_path)
         return fileNames
+    
+    def makeFileNameList(self):
+        fileNames = [] #instantiates a list that we're going to use to store the file names
+        #Iterate through all of the files in the directory
+        for file_path in self.directory_path.iterdir():
+            #If the file is a file and ends in ".wav" we're going to add it to the list of fileNames
+            if (file_path.is_file()) and (file_path.suffix.lower() == ".wav"):
+                file_path = os.path.basename(file_path)
+                fileNames.append(file_path)
+        return fileNames
+    
+    def getSpecificType(self, type):
+        fileNames = self.makeFileNameList()
+        filePaths = self.makeFilePathList()
+        rightType = []
+        for i in range(len(fileNames)):
+            if type in fileNames[i]:
+                rightType.append(filePaths[i])
+        return rightType
