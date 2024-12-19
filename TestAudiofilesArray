@@ -5,28 +5,30 @@ from pathlib import Path
 import os
 from collections import Counter
 
-class TestAudiofilesArray:
-
-    if __name__ == "__main__":
-        #DirectoryName = Path(r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\ICUNJ-grant-audiofiles")
+if __name__ == "__main__":
+        #DirectoryName = Path(r"C:\Users\spine\OneDrive\Documents\Math\Research\Quantum Graphs\ICUNJ grant 2024-25\samples")
         nameArray = AudiofilesArray(Path(r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\ICUNJ-grant-audiofiles"))
         #print(nameArray.makeFilePathList())
-        #print(nameArray.getSpecificType("1S"))
-        namelist = nameArray.getSpecificType("1S")
+        namelist = nameArray.getSpecificType("2S")
+
+        #file_path = r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\2S q 11-22-24.wav"
+        #file = audiofile(file_path)
+        #file.printfundamental
+
         print("*************************************************************************")
 
-        objlist = []
+        objlist = list()
         for i in range(len(namelist)):
-            objlist.append(audiofile(namelist[i]))
-
+            #print(namelist[i])
+            #objlist.append(audiofile(namelist[i]))
             #print(objlist[i])
-            #dataSet = DataAnalysis(objlist[i].ratioArray)
+            file = audiofile(namelist[i])
 
-
+            file.printfundamental()
+            dataSet = DataAnalysis(file.ratioArray)
+            dataSet.checkData(8)
             print("")
-        print(namelist)
 
-                
-            #dataSet.checkData()
-
-                
+        
+        
+        
