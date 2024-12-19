@@ -3,12 +3,11 @@ import matplotlib.pyplot as plt
 import librosa as lib
 import scipy as sci
 import statistics as stat
-import DataAnalysis
 import os
 
-class audiofile:
+class AudioFile:
 
-    def __init__(self, file):
+    def __init__(self, file, Athresh):
 
         ##############################################
         # attributes of the audiofile object
@@ -18,6 +17,12 @@ class audiofile:
 
         # file name without path
         self.file = os.path.basename(file)
+
+        # user input amplitude threshold
+        if Athresh == None:
+            self.Athresh = 0
+        else:
+            self.Athresh = Athresh
 
         # compute and store real fft of audio array
         self.fourier = np.fft.rfft(self.source)
@@ -52,11 +57,20 @@ class audiofile:
         # identifies peaks/fundamental values
         self.ratioArray = self.findratioArray()
 
+        # computes the array of differences: |actual - theoretical|
+        self.absoluteErrorArray = np.abs(self.ratioArray - np.rint(self.ratioArray))
+
+        # computes the array of relative errors
+        self.relativeErrorArray = self.findrelativeError()
+
         # convert power spectrum output data to dbfs (decibels full scale)
         self.dbfs = self.dbfsconvert()
 
         # convert PSD to dBV (decibel relative to 1 volt)
         self.dbv = self.dbvconvert()
+
+        self.meanRelativeError = stat.mean(self.relativeErrorArray)
+        self.stdevRelativeError = stat.stdev(self.relativeErrorArray)
 
 
 
@@ -86,7 +100,13 @@ class audiofile:
         self.printpeaks()
 
     def printpeaks(self):
-        print(f"the peaks of {str(self.file)} are", self.ratioArray) 
+        print(f"the peaks of {self.file} are", self.peaks) 
+
+    def printratios(self):
+        print(f"the ratio array of {self.file} is\n", self.ratioArray)
+
+    def printError(self):
+        print(f"{self.file} has mean error {self.meanRelativeError}\n and stdev of error {self.stdevRelativeError}\n from {len(self.ratioArray)} datapoints")
 
     # function to identify frequency of largest magnitude entry in PSD.  
     # I believe we need to double it since rfft uses half the bins.  Need to check this against cakewalk data.
@@ -241,21 +261,21 @@ class audiofile:
     # current noise floor is 0
     def bandpass(self):
         loFthresh = int(self.dummyfundamental)-10
-        hiFthresh = 30*int(self.dummyfundamental)+100
+        hiFthresh = 20*int(self.dummyfundamental)+100
         Athresh = 0
 
-        return audiofile.filtersignal(self.pspec, loFthresh, hiFthresh, Athresh)
+        return AudioFile.filtersignal(self.pspec, loFthresh, hiFthresh, Athresh)
 
     # class method for amplitude thresholding the bandpassed signal.
     # Athresh is set to mean+stdev of the windowed median with windowsize fundamental//2
     def filter(self):
         windowsize = self.dummyfundamental//2
 
-        mean, stdev = audiofile.staticwindowedmedian(self.bandpass(), windowsize)
+        mean, stdev = AudioFile.staticwindowedmedian(self.bandpass(), windowsize)
 
-        Athresh = 2
+        Athresh = self.Athresh
 
-        return audiofile.filtersignal(self.bandpass(),0,len(self.fourier),Athresh)
+        return AudioFile.filtersignal(self.bandpass(),0,len(self.fourier),Athresh)
     
     # class method for finding peaks in the PSD of our signal with a certain width
     # current width is between 5 and 30 samples
@@ -277,6 +297,15 @@ class audiofile:
 
         return P
 
+    def findrelativeError(self):
+        # create an array of the correct length
+        E = np.zeros(len(self.ratioArray))
+
+        for i in range(len(self.ratioArray)):
+            E[i] = self.absoluteErrorArray[i]/np.rint(self.ratioArray[i])
+
+        return E
+
     # method to compute a windowed median of the signal.  It will compute the median in each
     # window of size windowsize and put each median value in an array, then average the median
     # array values and return that average.  Currently detects high and low pass filters
@@ -284,7 +313,7 @@ class audiofile:
     @staticmethod
     def staticwindowedmedian(array,windowsize):
         # detect initial and trailing zeros
-        hipass, lopass = audiofile.detectzeros(array)
+        hipass, lopass = AudioFile.detectzeros(array)
 
         windowsizeInt = int(windowsize)
 
@@ -356,7 +385,7 @@ class audiofile:
         loPass = 0
         hiPass = 0
 
-        hiPass, loPass = audiofile.detectzeros(array)
+        hiPass, loPass = AudioFile.detectzeros(array)
 
         # find length of nonzero part of signal
         signallength = len(array) - loPass - hiPass
@@ -411,7 +440,7 @@ class audiofile:
     # function to plot the PSD data versus original bins
     @staticmethod
     def graph_filtersignal(array, Fthresh, Athresh):
-        F = audiofile.filtersignal(array,Fthresh,Athresh)
+        F = AudioFile.filtersignal(array,Fthresh,Athresh)
         plt.plot(np.arange(len(array)), F)
         plt.xlabel('entry number')
         plt.ylabel('signal')
