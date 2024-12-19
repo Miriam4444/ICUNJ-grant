@@ -15,32 +15,48 @@ class DataAnalysis:
         return number
     
     def findDuplicates(self, array):
-        counts = Counter(array)
+        counts = Counter(array)  # Count the amount of occurrences of each value
         duplicates = 0
-        entryNumber = 0
-        for value, count in counts.items():
-            entryNumber += 1
-            if count > 1:
-                duplicates += count - 1  # Add excess occurrences as duplicates
-                print((f'There\'s a duplicate at entry #{entryNumber}. Entry: "{value}"'))
+        seen = set()  # Track already seen values in set()
+
+        for i, value in enumerate(array):
+            if value in seen:  # If it's already in seen then it's a duplicate
+                duplicates += 1
+                print(f'There\'s a duplicate at entry #{i + 1}. Entry: "{value}"')
+            elif counts[value] > 1:  # Mark values with more than one occurrence
+                seen.add(value)
+
         return duplicates
 
-    def checkData(self):
+
+    def checkData(self , sampleValue):
         #Function checks if data is integer multiples and if there are no duplicates
         badData = 0
         closest_values = []
         for i, value in enumerate(self.array):
-            closest = self.checkIfClose(value)
-            closest_values.append(closest)
-            if not isinstance(closest, int):  # Not an integer multiple
-                print(f'There\'s a non-integer multiple at entry #{i + 1}. Entry: "{value}"')
-                badData += 1
+            #This part checks if it's less than whatever value you set the sampleValue to be 
+            if value <= sampleValue:
+                closest = self.checkIfClose(value)
+                closest_values.append(closest)
+                
+                if not isinstance(closest, int):  # Not an integer multiple
+                    print(f'There\'s a non-integer multiple at entry #{i + 1}. Entry: "{value}"')
+                    badData += 1
+            else:
+                pass
+        #we're going to run the findDuplicates function with the parameter closest_values which is the list of all of the whole numbers or bad decimal data
         duplicates = self.findDuplicates(closest_values)
         if duplicates > 0:
             #print(f"Duplicates: {duplicates}")
             badData += duplicates
         else:
             print("No duplicates in converted values.")
+
+
+        if badData == 0:
+            print("Array is integer multiples with no repeating values.")
+        else:
+            print(f"There are {badData} entries that either aren't integer multiples of the fundamental or are duplicates.")
 
 
         if badData == 0:
