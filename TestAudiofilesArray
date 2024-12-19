@@ -1,6 +1,9 @@
+from audiofile import audiofile
 from AudiofilesArray import AudiofilesArray
+from DataAnalysis import DataAnalysis
 from pathlib import Path
 import os
+from collections import Counter
 
 class TestAudiofilesArray:
 
@@ -8,4 +11,22 @@ class TestAudiofilesArray:
         #DirectoryName = Path(r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\ICUNJ-grant-audiofiles")
         nameArray = AudiofilesArray(Path(r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\ICUNJ-grant-audiofiles"))
         #print(nameArray.makeFilePathList())
-        print(nameArray.getSpecificType("1S"))
+        #print(nameArray.getSpecificType("1S"))
+        namelist = nameArray.getSpecificType("1S")
+        print("*************************************************************************")
+
+        objlist = []
+        for i in range(len(namelist)):
+            objlist.append(audiofile(namelist[i]))
+
+            #print(objlist[i])
+            #dataSet = DataAnalysis(objlist[i].ratioArray)
+
+
+            print("")
+        print(namelist)
+
+                
+            #dataSet.checkData()
+
+                
