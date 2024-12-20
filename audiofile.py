@@ -63,11 +63,12 @@ class AudioFile:
         # computes the array of relative errors
         self.relativeErrorArray = self.findrelativeError()
 
-        # convert power spectrum output data to dbfs (decibels full scale)
-        self.dbfs = self.dbfsconvert()
+        self.meanAbsoluteError = stat.mean(self.absoluteErrorArray)
+        self.stdevAbsoluteError = stat.stdev(self.absoluteErrorArray)
 
-        # convert PSD to dBV (decibel relative to 1 volt)
-        self.dbv = self.dbvconvert()
+        # mean and stdev of absolute error rescaled by 0.5 being 100% error
+        self.meanAbsoluteErrorNormalized = stat.mean(2*self.absoluteErrorArray)
+        self.stdevAbsoluteErrorNormalized = stat.stdev(2*self.absoluteErrorArray)
 
         self.meanRelativeError = stat.mean(self.relativeErrorArray)
         self.stdevRelativeError = stat.stdev(self.relativeErrorArray)
@@ -146,64 +147,7 @@ class AudioFile:
         A = np.abs(array)
         F = (samplerate/len(array))*np.argmax(A[:samplerate//2 + 1])
         return F
-
-    # function to convert the PSD output to dBFS (decibel full scale)
-    # I believe it's currently wonky since it doesn't appear to agree with cakewalk's output, for example,
-    # but I'm also not sure what the vertical axis is in cakewalk.  My gut says it's dBV (decibels relative to 1 volt)
-    def dbfsconvert(self):
-        rescaled = self.pspec*2/self.N
-
-        # Convert to dBFS (decibels full scale)
-        dbfs = 20*np.log10(rescaled)
-
-        return dbfs
-
-    # function to convert the PSD output to dBV (decibels re: 1 volt)
-    # to do this we need a reference voltage V0.
-    def dbvconvert(self):
-        # reference voltage - maybe we test some values to see what gets close to cakewalk's output?
-        # update: I looked back at the screenshot that had fundamental equal to 258 Hz (which is what
-        # our getfund method says is the fundamental of this signal) and it appeared to peak around
-        # 4 on the vertical axis in cakewalk.  So I very crudely guessed and checked with the V0 value
-        # until the output for 258 Hz is about +4.  However the other peaks in cakewalk are significantly higher than 
-        # the peaks we get from this scheme so I'm not sure
-        V0 = 225
-
-        N = len(self.pspec)
-
-        # initialize dbv array of correct length with 1s
-        dbv = np.ones(N)
-
-        # compute dBV --- adding a conditional statement to avoid log(0)
-        for i in range(0,N):
-            if self.pspec[i] != 0:
-                dbv[i] = 20*np.log10(self.pspec[i]/V0)
-            else:
-                dbv[i] = -100 # should be -infinity so I made it a large negative.  Not sure how best to handle this.
-
-        return dbv
-
-    # static version of the above function
-    @staticmethod
-    def staticdbvconvert(array):
-        # For the static version of this method we may want to allow for V0 as an input?
-        V0 = 225
-
-        # absolute value the input array so we don't blow up the log
-        A = np.abs(array)
-
-        # initialize dbv array of correct length with 1s
-        dbv = np.ones(len(array))
-
-        # compute dBV --- adding a conditional statement to avoid log(0)
-        for i in range(0,len(array)):
-            if A[i] != 0:
-                dbv[i] = 20*np.log10(A[i]/V0)
-            else:
-                dbv[i] = -100 # should be -infinity so I made it a large negative.  Not sure how best to handle this.
-
-        return dbv
-
+    
     # filter the psd data to cut out everything below a certain loudness (magthresh)
     # and below a specified frequency (freqthresh).  This method can definitely be improved by 
     # allowing for only filtering of one kind or the other.
