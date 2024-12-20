@@ -16,8 +16,69 @@ if __name__ == "__main__":
 
         print("*************************************************************************")
 
-        
+        # function that creates a figure for each weight in an evenly spaced array
+        # of values from a to b; number of desired values is N
+        def plotweightfunctions(a, b, N):
+                k = np.linspace(a, b, N)
 
+                for j in range(len(k)):
+                        weightfunction = list()
+
+                        for i in range(len(A)):
+                                weight = labels[i]/meanofmeans[i]**(1/k[j])
+                                weightfunction.append(weight)
+
+                        plt.plot(A, weightfunction)
+                        plt.xlabel("A")
+                        plt.ylabel("W(k,A)")
+                        plt.title(f"weight = {k[j]}")
+                
+                        plt.show()
+
+        def plotMeanofRelativeError():
+                fig, ax = plt.subplots()
+
+                ax.plot(A,meanofmeans)
+                
+                ax.scatter(A,meanofmeans)
+
+                for i in range(len(labels)):
+                        ax.annotate(labels[i], (A[i], meanofmeans[i]))
+
+                ax.set_xlabel("A")
+                ax.set_ylabel("Mean of mean errors")
+                ax.set_title("Mean of mean rel. error vs A")
+                plt.show()
+
+        def plotMeanofAbsoluteError():
+                fig, ax = plt.subplots()
+
+                ax.plot(A,meanofmeans)
+                
+                ax.scatter(A,meanofmeans)
+
+                for i in range(len(labels)):
+                        ax.annotate(labels[i], (A[i], meanofmeans[i]))
+
+                ax.set_xlabel("A")
+                ax.set_ylabel("Mean of mean errors")
+                ax.set_title("Mean of mean abs. error vs A")
+                plt.show()
+
+        def plotMeanofAbsoluteErrorNormalized():
+                fig, ax = plt.subplots()
+
+                ax.plot(A,meanofmeans)
+                
+                ax.scatter(A,meanofmeans)
+
+                for i in range(len(labels)):
+                        ax.annotate(labels[i], (A[i], meanofmeans[i]))
+
+                ax.set_xlabel("A")
+                ax.set_ylabel("Mean of mean errors")
+                ax.set_title("Mean of mean abs. error normalized vs A")
+                plt.show()
         
 
         # initialize an array of 10 evenly spaced Athresh values between 0 and 5
@@ -44,7 +105,9 @@ if __name__ == "__main__":
                         objArray[i][j] = f
 
                         # populate row a = A[i] with the relativeMeanErrors for the samples
-                        M[i][j] = objArray[i][j].meanRelativeError
+                        #M[i][j] = objArray[i][j].meanRelativeError
+
+                        M[i][j] = objArray[i][j].meanAbsoluteError
 
                         datapointsArray[i][j] = len(objArray[i][j].ratioArray)
 
@@ -52,27 +115,17 @@ if __name__ == "__main__":
 
                 meanofmeans.append(m)
 
-                meandatapoints = stat.mean(datapointsArray[i])
+                meandatapoints = round(stat.mean(datapointsArray[i]), 2)
 
                 labels.append(meandatapoints)
 
                 #print(f"the mean of the mean relative errors for Athresh {a} is {m}")
 
-        k = np.linspace(0.5, 3, 6)
+        plotweightfunctions(0.5, 3, 6)
 
-        for j in range(len(k)):
-                weightfunction = list()
 
-                for i in range(len(A)):
-                        weight = labels[i]/meanofmeans[i]**(1/k[j])
-                        weightfunction.append(weight)
 
-                plt.plot(A, weightfunction)
-                plt.xlabel("A")
-                plt.ylabel("W(k,A)")
-                plt.title(f"weight = {k[j]}")
-        
-                plt.show()
+
 
 
 
@@ -92,19 +145,7 @@ if __name__ == "__main__":
                         ax2[j-3].set_xlabel("A")
 
 
-        fig, ax = plt.subplots()
 
-        ax.plot(A,meanofmeans)
-        
-        ax.scatter(A,meanofmeans)
-
-        for i in range(len(labels)):
-                ax.annotate(labels[i], (A[i], meanofmeans[i]))
-
-        ax.set_xlabel("Athresh")
-        ax.set_ylabel("Mean of means")
-        ax.set_title("Mean of mean rel. error vs Athresh")
-        plt.show()
         
                 
         # initialize amplitude threshold
@@ -133,7 +174,5 @@ if __name__ == "__main__":
 
                 #dataSet.checkData()
         '''
-        
-
         
 
