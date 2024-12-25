@@ -4,7 +4,6 @@ import librosa as lib
 import scipy as sci
 import statistics as stat
 import os
-from audiofile import AudioFile
 from AudiofilesArray import AudiofilesArray
 from DataAnalysis import DataAnalysis
 from pathlib import Path
@@ -452,14 +451,14 @@ class AudioFile:
         plt.title('graph of filtered signal')
         plt.show()
 
-    def analyzeData(self, directory):
+    def analyzeData(self, directory, startValue, endValue, n):
         #DirectoryName = Path(r"C:\Users\spine\OneDrive\Documents\Math\Research\Quantum Graphs\ICUNJ grant 2024-25\samples")
         #directory = r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\ICUNJ-grant-audiofiles"
         nameArray = AudiofilesArray(Path(directory))
         #print(nameArray.makeFilePathList())
         namelist = nameArray.getSpecificType("1S")
-        # initialize an array of 10 evenly spaced Athresh values between 0 and 5
-        A = np.linspace(0.0, 8.0, 11)
+        # initialize an array of n-1 evenly spaced Athresh values between startValue and endValue
+        A = np.linspace(startValue, endValue, n)
 
         # initialize an empty |A| x |audiofiles| array to be populated with audiofile arrays
         objArray = np.empty(shape=(len(A),len(namelist)), dtype=AudioFile)
