@@ -4,6 +4,11 @@ import librosa as lib
 import scipy as sci
 import statistics as stat
 import os
+from audiofile import AudioFile
+from AudiofilesArray import AudiofilesArray
+from DataAnalysis import DataAnalysis
+from pathlib import Path
+from collections import Counter
 
 class AudioFile:
 
@@ -446,6 +451,66 @@ class AudioFile:
         plt.ylabel('signal')
         plt.title('graph of filtered signal')
         plt.show()
+
+    def analyzeData(self, directory):
+        #DirectoryName = Path(r"C:\Users\spine\OneDrive\Documents\Math\Research\Quantum Graphs\ICUNJ grant 2024-25\samples")
+        #directory = r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\ICUNJ-grant-audiofiles"
+        nameArray = AudiofilesArray(Path(directory))
+        #print(nameArray.makeFilePathList())
+        namelist = nameArray.getSpecificType("1S")
+        # initialize an array of 10 evenly spaced Athresh values between 0 and 5
+        A = np.linspace(0.0, 8.0, 11)
+
+        # initialize an empty |A| x |audiofiles| array to be populated with audiofile arrays
+        objArray = np.empty(shape=(len(A),len(namelist)), dtype=AudioFile)
+
+        # initialize an empty |A| x |audiofiles| array to be populated with the meanerror of each audiofile
+        M = np.empty(shape=(len(A),len(namelist)))
+
+        meanofmeans = list()
+        datapointsArray = np.empty(shape=(len(A),len(namelist)))
+        labels = list()
+
+        for i in range(len(A)):
+                a = A[i]
+
+                # populate the ith row of the array of audiofiles with samples corresponding to threshold a
+                for j in range(len(namelist)):
+
+                        f = AudioFile(namelist[j], a)
+
+                        objArray[i][j] = f
+
+                        # populate row a = A[i] with the relativeMeanErrors for the samples
+                        M[i][j] = objArray[i][j].meanRelativeError
+
+                        datapointsArray[i][j] = len(objArray[i][j].ratioArray)
+
+                m = stat.mean(M[i])
+
+                meanofmeans.append(m)
+
+                meandatapoints = stat.mean(datapointsArray[i])
+
+                labels.append(meandatapoints)
+
+                #print(f"the mean of the mean relative errors for Athresh {a} is {m}")
+
+        k = np.linspace(0.5, 3, 6)
+
+        for j in range(len(k)):
+                weightfunction = list()
+
+                for i in range(len(A)):
+                        weight = labels[i]/meanofmeans[i]**(1/k[j])
+                        weightfunction.append(weight)
+
+                plt.plot(A, weightfunction)
+                plt.xlabel("A")
+                plt.ylabel("W(k,A)")
+                plt.title(f"weight = {k[j]}")
+        
+                plt.show()
 ############################################################################
 # END AUDIOFILE CLASS
 ############################################################################
