@@ -451,7 +451,7 @@ class AudioFile:
         plt.title('graph of filtered signal')
         plt.show()
 
-    def analyzeData(self, directory, startValue, endValue, n):
+    def graphMeanOfMeans(self, directory, startValue, endValue, n):
         #DirectoryName = Path(r"C:\Users\spine\OneDrive\Documents\Math\Research\Quantum Graphs\ICUNJ grant 2024-25\samples")
         #directory = r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\ICUNJ-grant-audiofiles"
         nameArray = AudiofilesArray(Path(directory))
@@ -519,6 +519,32 @@ class AudioFile:
         
         plt.tight_layout()  # fix spacing between graphs (btw you can also manually adjust this when you print the graphs)
         plt.show()
+
+    def windowedMedianFilter(self, list, windowSize):
+        #idk if it matters but do we want to add the zeros to the end or the beginning (rn i'm adding the zeros to the end)
+        #Also, I didn't pad them with zeros because Idk how the window size would affect how many zeros to pad the list with so I'm holding off on that
+        windowedMedianList = []
+        modZero = True
+        if len(list) % windowSize != 0:
+            modZero = False
+        while modZero != 0:
+            list.append(0)
+        numWindows = len(list)/windowSize
+        startValue = 0
+        for i in range(numWindows): 
+            newArray = list[startValue: startValue + windowSize]
+            med = stat.median(newArray)
+            windowedMedianList.append(med)
+        return windowedMedianList
+    
+    def subtractedSignalFilter(self, list, windowedMedianList, windowSize):
+        windowedMedianList = AudioFile.windowedMedianFilter(list, windowSize)
+        subtractedSignal = []
+        if len(list) == len(windowedMedianList):
+            for i in range(len(list)):
+                subtractedSignal.append(list[i] - windowedMedianList[i])
+        return subtractedSignal
+
 ############################################################################
 # END AUDIOFILE CLASS
 ############################################################################
