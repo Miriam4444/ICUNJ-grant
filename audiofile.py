@@ -496,20 +496,29 @@ class AudioFile:
                 #print(f"the mean of the mean relative errors for Athresh {a} is {m}")
 
         k = np.linspace(0.5, 3, 6)
-
-        for j in range(len(k)):
-                weightfunction = list()
-
-                for i in range(len(A)):
-                        weight = labels[i]/meanofmeans[i]**(1/k[j])
-                        weightfunction.append(weight)
-
-                plt.plot(A, weightfunction)
-                plt.xlabel("A")
-                plt.ylabel("W(k,A)")
-                plt.title(f"weight = {k[j]}")
+        num_plots = len(k)
         
-                plt.show()
+        # Create subplots
+        rows = 2
+        columns = 3
+        fig, axs = plt.subplots(rows, columns, figsize=(12, 8))  
+        
+        for idx, ax in enumerate(axs.flat):  # Flatten 2D array of axes so iteration works (I was getting an error before when I iterated)
+            if idx < num_plots:  # Only plot for valid indices
+                weightfunction = []
+                for i in range(len(A)):
+                    weight = labels[i] / meanofmeans[i]**(1 / k[idx])
+                    weightfunction.append(weight)
+                
+                ax.plot(A, weightfunction)
+                ax.set_xlabel("A")
+                ax.set_ylabel("W(k,A)")
+                ax.set_title(f"Weight = {k[idx]:.1f}")
+            else:
+                ax.set_visible(False)  # Hide unused axes
+        
+        plt.tight_layout()  # fix spacing between graphs (btw you can also manually adjust this when you print the graphs)
+        plt.show()
 ############################################################################
 # END AUDIOFILE CLASS
 ############################################################################
