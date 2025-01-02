@@ -533,7 +533,7 @@ class AudioFile:
         startValue = 0
         for i in range(numWindows): 
             newArray = list[startValue: startValue + windowSize]
-            med = stat.median(newArray)
+            med = abs(stat.median(newArray))
             windowedMedianList.append(med)
         return windowedMedianList
     
@@ -544,6 +544,20 @@ class AudioFile:
             for i in range(len(list)):
                 subtractedSignal.append(list[i] - windowedMedianList[i])
         return subtractedSignal
+    
+    def corellation(self, x):
+        X = np.rfft(x)  # Compute FFT of signal x (clarify what x is here)
+        autocorrelation = np.irfft(np.conj(X) * X)  # Compute autocorrelation using inverse FFT
+        #The functional relationships go like this:
+            #x ~ voltage (amplitude of digitized signal) vs time
+            # X ~ voltage vs frequency
+            # autocorrelation ~ voltage^2 vs *time lag*
+        return autocorrelation
+
+    def hanningWindow(self, file_path):
+        signal, self.sr = lib.load(file_path)
+        H = np.hanning(self.N)
+        self.source = signal*H
 
 ############################################################################
 # END AUDIOFILE CLASS
