@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize, ListedColormap
 import librosa as lib
 import scipy as sci
 import statistics as stat
@@ -8,10 +9,13 @@ from AudiofilesArray import AudiofilesArray
 from DataAnalysis import DataAnalysis
 from pathlib import Path
 from collections import Counter
+from typing import Any
+
+NDArray = np.ndarray[Any, np.dtype[np.float64]]
 
 class AudioFile:
 
-    def __init__(self, file, Athresh):
+    def __init__(self, file: str, Athresh: float):
 
         ##############################################
         # attributes of the audiofile object
@@ -19,8 +23,12 @@ class AudioFile:
         # load wav file as array and store sample rate
         self.source, self.sr =  lib.load(file, sr=None) 
 
+        self.source = self.hanningWindow()
+
+        self.windowedSource = self.hanningWindow()
+
         # file name without path
-        self.file = os.path.basename(file)
+        self.file: str = os.path.basename(file)
 
         # user input amplitude threshold
         if Athresh == None:
@@ -29,87 +37,91 @@ class AudioFile:
             self.Athresh = Athresh
 
         # compute and store real fft of audio array
-        self.fourier = np.fft.rfft(self.source)
+        self.fourier: NDArray = np.fft.rfft(self.source)
 
         # store number of samples in original file
-        self.N = len(self.source)
+        self.N: int = len(self.source)
 
         # store original sample's frequency bins
-        self.bins = np.arange(len(self.fourier))
+        self.bins: NDArray = np.arange(len(self.fourier))
 
         # compute the power spectrum of the rfft
-        self.pspec = np.abs(self.fourier)
+        self.pspec: NDArray = np.abs(self.fourier)
 
         # compute the corresponding frequencies of the rfft in Hz
         # first uses the built-in rfft frequency calculator from numpy
         # third calculates by hand accounting for the rfft cutting the frequency bins in half
-        self.freq = np.fft.rfftfreq(len(self.source), 1/self.sr)
+        self.freq: NDArray = np.fft.rfftfreq(len(self.source), 1/self.sr)
 
         # identify fundamental as freq of largest coefficient in the power spectrum 
         # -- this can lead to erroneous results, we need to be careful in how we define this!
-        self.dummyfundamental = self.getfund2()
+        self.dummyfundamental: int = self.getfund2()
 
         # filter the PSD to cut out frequencies below the fundamental, above a certain threshold, and below a prescribed amplitude
-        self.filtered = self.filter()
+        self.filtered: NDArray = self.filter()
 
         # identify the array of peaks in the filtered signal.  **Must choose a widths array in the findpeaks method.**
-        self.peaks = self.findpeaks()
+        self.peaks: NDArray = self.findpeaks()
 
         # redefine fundamental as first peaks entry
-        self.fundamental = self.peaks[0]
+        self.fundamental: int = self.peaks[0]
 
         # identifies peaks/fundamental values
-        self.ratioArray = self.findratioArray()
+        self.ratioArray: NDArray = self.findratioArray()
 
         # computes the array of differences: |actual - theoretical|
-        self.absoluteErrorArray = np.abs(self.ratioArray - np.rint(self.ratioArray))
+        self.absoluteErrorArray: NDArray = np.abs(self.ratioArray - np.rint(self.ratioArray))
+        self.meanAbsoluteError: float = stat.mean(self.absoluteErrorArray)
 
         # computes the array of relative errors
-        self.relativeErrorArray = self.findrelativeError()
+        self.relativeErrorArray: NDArray = self.findrelativeError()
 
-        # convert power spectrum output data to dbfs (decibels full scale)
-        self.dbfs = self.dbfsconvert()
+        self.meanRelativeError: float = stat.mean(self.relativeErrorArray)
+        self.stdevRelativeError: float = stat.stdev(self.relativeErrorArray)
 
-        # convert PSD to dBV (decibel relative to 1 volt)
-        self.dbv = self.dbvconvert()
-
-        self.meanRelativeError = stat.mean(self.relativeErrorArray)
-        self.stdevRelativeError = stat.stdev(self.relativeErrorArray)
-
-
-
+        
+        #self.source = self.hanningWindow()
+        #self.windowedFourier = np.fft.rfft(self.source)
+        #self.windowedpspec = np.abs(self.windowedFourier)
+        #self.windowedFiltered = self.filter()
+        #self.windowedPeaks = self.findpeaks()
+        #self.windowedRatioArray = self.findratioArray()
+        #self.windowedAbsoluteErrorArray = np.abs(self.ratioArray - np.rint(self.ratioArray))
+        #self.windowedMeanAbsoluteError = stat.mean(self.windowedAbsoluteErrorArray)
+        
+        
 
     ##########################################
     # methods
     ##########################################
-    def printN(self):
+    def printN(self) -> None:
         print("the length of the original file is", self.N)
 
-    def printbins(self):
+    def printbins(self) -> None:
         print("the number of freq bins in the RFFT is", self.bins)
 
-    def printPSD(self):
+    def printPSD(self) -> None:
         print("the power spectrum of the RFFT is", self.pspec)
 
-    def printfreq(self):
+    def printfreq(self) -> None:
         print("the frequencies in Hz of the PDS are", self.freq)
 
-    def printfundamental(self):
+    def printfundamental(self) -> None:
         print("the fundamental frequency of the signal is", self.fundamental)
 
-    def printall(self):
+    def printall(self) -> None:
         self.printN()
         self.printfreq()
         self.printfundamental()
         self.printpeaks()
 
-    def printpeaks(self):
+    def printpeaks(self) -> None:
         print(f"the peaks of {self.file} are", self.peaks) 
 
-    def printratios(self):
+    def printratios(self) -> None:
         print(f"the ratio array of {self.file} is\n", self.ratioArray)
 
-    def printError(self):
+    def printError(self) -> None:
         print(f"{self.file} has mean error {self.meanRelativeError}\n and stdev of error {self.stdevRelativeError}\n from {len(self.ratioArray)} datapoints")
 
     # function to identify frequency of largest magnitude entry in PSD.  
@@ -118,7 +130,7 @@ class AudioFile:
     # significantly louder than the first two, which is leading to the fundamental being incorrectly identified.
     # We may want to alter this method so that it only hunts between 200 and 500 Hz for our fundamental since 
     # we'll only tune our strings to that frequency range
-    def getfund2(self):
+    def getfund2(self) -> int:
         # initialize min and max indices to 0
         min = 0
         max = 0
@@ -146,73 +158,17 @@ class AudioFile:
     # static version of the above.  This will take in an array and an integer samplerate
     # and return 2*(array index corresp to maximum magnitude array value) 
     @staticmethod
-    def staticgetfund(array, samplerate):
+    def staticgetfund(array: NDArray, samplerate: int):
         A = np.abs(array)
         F = (samplerate/len(array))*np.argmax(A[:samplerate//2 + 1])
         return F
 
-    # function to convert the PSD output to dBFS (decibel full scale)
-    # I believe it's currently wonky since it doesn't appear to agree with cakewalk's output, for example,
-    # but I'm also not sure what the vertical axis is in cakewalk.  My gut says it's dBV (decibels relative to 1 volt)
-    def dbfsconvert(self):
-        rescaled = self.pspec*2/self.N
-
-        # Convert to dBFS (decibels full scale)
-        dbfs = 20*np.log10(rescaled)
-
-        return dbfs
-
-    # function to convert the PSD output to dBV (decibels re: 1 volt)
-    # to do this we need a reference voltage V0.
-    def dbvconvert(self):
-        # reference voltage - maybe we test some values to see what gets close to cakewalk's output?
-        # update: I looked back at the screenshot that had fundamental equal to 258 Hz (which is what
-        # our getfund method says is the fundamental of this signal) and it appeared to peak around
-        # 4 on the vertical axis in cakewalk.  So I very crudely guessed and checked with the V0 value
-        # until the output for 258 Hz is about +4.  However the other peaks in cakewalk are significantly higher than 
-        # the peaks we get from this scheme so I'm not sure
-        V0 = 225
-
-        N = len(self.pspec)
-
-        # initialize dbv array of correct length with 1s
-        dbv = np.ones(N)
-
-        # compute dBV --- adding a conditional statement to avoid log(0)
-        for i in range(0,N):
-            if self.pspec[i] != 0:
-                dbv[i] = 20*np.log10(self.pspec[i]/V0)
-            else:
-                dbv[i] = -100 # should be -infinity so I made it a large negative.  Not sure how best to handle this.
-
-        return dbv
-
-    # static version of the above function
-    @staticmethod
-    def staticdbvconvert(array):
-        # For the static version of this method we may want to allow for V0 as an input?
-        V0 = 225
-
-        # absolute value the input array so we don't blow up the log
-        A = np.abs(array)
-
-        # initialize dbv array of correct length with 1s
-        dbv = np.ones(len(array))
-
-        # compute dBV --- adding a conditional statement to avoid log(0)
-        for i in range(0,len(array)):
-            if A[i] != 0:
-                dbv[i] = 20*np.log10(A[i]/V0)
-            else:
-                dbv[i] = -100 # should be -infinity so I made it a large negative.  Not sure how best to handle this.
-
-        return dbv
 
     # filter the psd data to cut out everything below a certain loudness (magthresh)
     # and below a specified frequency (freqthresh).  This method can definitely be improved by 
     # allowing for only filtering of one kind or the other.
     @staticmethod
-    def filtersignal(array,loFthresh,hiFthresh,Athresh):
+    def filtersignal(array: NDArray, loFthresh:float, hiFthresh:float, Athresh:float) -> NDArray:
         loFthresh = int(loFthresh)
         hiFthresh = int(hiFthresh)
 
@@ -263,7 +219,7 @@ class AudioFile:
     # current high pass is fundamental-10
     # current low pass is 50*fundamental + 100
     # current noise floor is 0
-    def bandpass(self):
+    def bandpass(self) -> NDArray:
         loFthresh = int(self.dummyfundamental)-10
         hiFthresh = 20*int(self.dummyfundamental)+100
         Athresh = 0
@@ -272,7 +228,7 @@ class AudioFile:
 
     # class method for amplitude thresholding the bandpassed signal.
     # Athresh is set to mean+stdev of the windowed median with windowsize fundamental//2
-    def filter(self):
+    def filter(self) -> NDArray:
         windowsize = self.dummyfundamental//2
 
         mean, stdev = AudioFile.staticwindowedmedian(self.bandpass(), windowsize)
@@ -283,13 +239,13 @@ class AudioFile:
     
     # class method for finding peaks in the PSD of our signal with a certain width
     # current width is between 5 and 30 samples
-    def findpeaks(self):
+    def findpeaks(self) -> NDArray:
         peaks = sci.signal.find_peaks_cwt(self.filtered, widths=np.arange(5, 30))
 
         return peaks
     
     # class method to find the array of ratios: peak frequency/fundamental frequency
-    def findratioArray(self):
+    def findratioArray(self) -> NDArray:
         P = np.zeros(len(self.peaks))
 
         for i in range(0,len(self.peaks)):
@@ -301,7 +257,7 @@ class AudioFile:
 
         return P
 
-    def findrelativeError(self):
+    def findrelativeError(self) -> NDArray:
         # create an array of the correct length
         E = np.zeros(len(self.ratioArray))
 
@@ -315,7 +271,7 @@ class AudioFile:
     # array values and return that average.  Currently detects high and low pass filters
     # and applies this windowed median procedure to the non-passed part of the signal
     @staticmethod
-    def staticwindowedmedian(array,windowsize):
+    def staticwindowedmedian(array: NDArray, windowsize: int) -> float:
         # detect initial and trailing zeros
         hipass, lopass = AudioFile.detectzeros(array)
 
@@ -341,7 +297,7 @@ class AudioFile:
     # static method that takes in an array and determines if there are leading or trailing
     # zeros.  IDs a high- or low-passed signal.  Returns # of zeroes at beginning and end
     @staticmethod
-    def detectzeros(array):
+    def detectzeros(array: NDArray) -> tuple[int,int]:
         initialzeros = 0
         trailingzeros = 0
 
@@ -359,7 +315,7 @@ class AudioFile:
 
     # static method to ignore zeros in an array and compute the median of nonzero entries
     @staticmethod
-    def positivemedian(array):
+    def positivemedian(array: NDArray) -> float:
         if len(array)==0:
             return 0
 
@@ -385,7 +341,7 @@ class AudioFile:
                 return stat.median(M2)
 
     @staticmethod
-    def filteredstats(array):
+    def filteredstats(array: NDArray) -> tuple[float,float]:
         loPass = 0
         hiPass = 0
 
@@ -409,7 +365,7 @@ class AudioFile:
             return stat.mean(M), stat.stdev(M)
 
     # function to plot the raw rfft data
-    def graph_original(self):
+    def graph_original(self) -> None:
         plt.plot(self.bins, self.fourier)
         plt.xlabel('entry number')
         plt.ylabel('RFFT coefficient')
@@ -417,33 +373,16 @@ class AudioFile:
         plt.show()
 
     # function to plot the PSD data versus original bins
-    def graph_PSD(self):
+    def graph_PSD(self) -> None:
         plt.plot(self.bins, self.pspec)
         plt.xlabel('entry number')
         plt.ylabel('Magnitude of RFFT')
         plt.title('graph of string pluck')
         plt.show()
 
-    # function to plot the converted dbfs data vs freq3.  Not sure if this currently works.
-    def graph_dbfs(self):
-        plt.plot(self.freq, self.dbfs)
-        plt.xlabel('frequency (Hz)')
-        plt.ylabel('dBFS')
-        plt.title('graph of string pluck')
-        plt.show()
-
-    # function to plot the converted dbv data vs freq3.  Not sure if this currently works.
-    # We should decide what minimum dbv value we want to consider.  
-    def graph_dbv(self):
-        plt.plot(self.freq, self.dbv)
-        plt.xlabel('frequency (Hz)')
-        plt.ylabel('dBV')
-        plt.title('graph of string pluck')
-        plt.show()
-
     # function to plot the PSD data versus original bins
     @staticmethod
-    def graph_filtersignal(array, Fthresh, Athresh):
+    def graph_filtersignal(array: NDArray, Fthresh: float, Athresh: float) -> None:
         F = AudioFile.filtersignal(array,Fthresh,Athresh)
         plt.plot(np.arange(len(array)), F)
         plt.xlabel('entry number')
@@ -451,7 +390,8 @@ class AudioFile:
         plt.title('graph of filtered signal')
         plt.show()
 
-    def graphMeanOfMeans(self, directory, startValue, endValue, n):
+    @staticmethod
+    def graphMeanOfMeans(directory: str, startValue: float, endValue: float, n: int) -> None:
         #DirectoryName = Path(r"C:\Users\spine\OneDrive\Documents\Math\Research\Quantum Graphs\ICUNJ grant 2024-25\samples")
         #directory = r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\ICUNJ-grant-audiofiles"
         nameArray = AudiofilesArray(Path(directory))
@@ -481,7 +421,102 @@ class AudioFile:
                         objArray[i][j] = f
 
                         # populate row a = A[i] with the relativeMeanErrors for the samples
-                        M[i][j] = objArray[i][j].meanRelativeError
+                        M[i][j] = objArray[i][j].meanAbsoluteError
+
+                        datapointsArray[i][j] = len(objArray[i][j].ratioArray)
+
+                m = stat.mean(M[i])
+
+                meanofmeans.append(m)
+
+                meandatapoints = stat.mean(datapointsArray[i])
+
+                labels.append(meandatapoints)
+
+                #print(f"the mean of the mean relative errors for Athresh {a} is {m}")
+
+        k = np.linspace(0.5, 3, 6)
+        num_plots = len(k)
+        
+        # Create subplots
+        rows = 2
+        columns = 3
+        fig, axs = plt.subplots(rows, columns, figsize=(12, 8))  
+        
+        # get colormap for the subplots
+        cmap = plt.get_cmap('viridis')
+        # normalize label values to use in colormap
+        #labelArray = np.array(labels)
+        norm = Normalize(vmin=min(labels), vmax=max(labels))
+        # create a scalar-mappable object
+        #sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        #sm.set_array([])
+
+        for idx, ax in enumerate(axs.flat):  # Flatten 2D array of axes so iteration works (I was getting an error before when I iterated)
+            if idx < num_plots:  # Only plot for valid indices
+                weightfunction = []
+                for i in range(len(A)):
+                    weight = labels[i] / meanofmeans[i]**(1 / k[idx])
+                    weightfunction.append(weight)
+                
+                ax.scatter(A, weightfunction, c=labels, cmap = cmap)
+                
+                #for i in range(len(A)):
+                #    ax.annotate(round(labels[i],2),(A[i], weightfunction[i]))
+
+                ax.set_xlabel("A")
+                ax.set_ylabel("W(k,A)")
+                ax.set_title(f"Weight = {k[idx]:.1f}")
+            else:
+                ax.set_visible(False)  # Hide unused axes
+        
+        # create the colorbar
+        smap = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        cbar = fig.colorbar(smap, ax=axs, location = "right", orientation = "vertical", pad=0.1, fraction=0.1, shrink = 0.8)
+        cbar.ax.tick_params(labelsize=10)
+        cbar.ax.set_ylabel('# data points', rotation=90, labelpad = 15, fontdict = {"size":10})   
+
+        # fix spacing between graphs and confine them to a rectangle so the colorbar can fit
+        plt.tight_layout(rect=(0,0,0.8,1))  
+
+        # save figure to file with user input values in filename
+        plt.savefig(f'windowedfigure-{startValue}-{endValue}-{n}.png')
+
+        plt.show()
+
+    
+    @staticmethod
+    def windowedGraphMeanOfMeans(directory: str, startValue: float, endValue: float, n: int) -> None:
+        #DirectoryName = Path(r"C:\Users\spine\OneDrive\Documents\Math\Research\Quantum Graphs\ICUNJ grant 2024-25\samples")
+        #directory = r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\ICUNJ-grant-audiofiles"
+        nameArray = AudiofilesArray(Path(directory))
+        #print(nameArray.makeFilePathList())
+        namelist = nameArray.getSpecificType("1S")
+        # initialize an array of n-1 evenly spaced Athresh values between startValue and endValue
+        A = np.linspace(startValue, endValue, n)
+
+        # initialize an empty |A| x |audiofiles| array to be populated with audiofile arrays
+        objArray = np.empty(shape=(len(A),len(namelist)), dtype=AudioFile)
+
+        # initialize an empty |A| x |audiofiles| array to be populated with the meanerror of each audiofile
+        M = np.empty(shape=(len(A),len(namelist)))
+
+        meanofmeans = list()
+        datapointsArray = np.empty(shape=(len(A),len(namelist)))
+        labels = list()
+
+        for i in range(len(A)):
+                a = A[i]
+
+                # populate the ith row of the array of audiofiles with samples corresponding to threshold a
+                for j in range(len(namelist)):
+
+                        f = AudioFile(namelist[j], a)
+
+                        objArray[i][j] = f
+
+                        # populate row a = A[i] with the relativeMeanErrors for the samples
+                        M[i][j] = objArray[i][j].meanAbsoluteError
 
                         datapointsArray[i][j] = len(objArray[i][j].ratioArray)
 
@@ -511,16 +546,20 @@ class AudioFile:
                     weightfunction.append(weight)
                 
                 ax.plot(A, weightfunction)
+                for i in range(len(A)):
+                    ax.text(A[i], weightfunction[i], f"{labels[i]}", fontsize=8)
                 ax.set_xlabel("A")
                 ax.set_ylabel("W(k,A)")
                 ax.set_title(f"Weight = {k[idx]:.1f}")
+
             else:
                 ax.set_visible(False)  # Hide unused axes
         
         plt.tight_layout()  # fix spacing between graphs (btw you can also manually adjust this when you print the graphs)
         plt.show()
 
-    def windowedMedianFilter(self, list, windowSize):
+
+    def windowedMedianFilter(self, list: list, windowSize: int) -> list:
         #idk if it matters but do we want to add the zeros to the end or the beginning (rn i'm adding the zeros to the end)
         #Also, I didn't pad them with zeros because Idk how the window size would affect how many zeros to pad the list with so I'm holding off on that
         windowedMedianList = []
@@ -537,7 +576,7 @@ class AudioFile:
             windowedMedianList.append(med)
         return windowedMedianList
     
-    def subtractedSignalFilter(self, list, windowedMedianList, windowSize):
+    def subtractedSignalFilter(self, list: list, windowedMedianList: list, windowSize: int) -> list:
         windowedMedianList = AudioFile.windowedMedianFilter(list, windowSize)
         subtractedSignal = []
         if len(list) == len(windowedMedianList):
@@ -545,7 +584,7 @@ class AudioFile:
                 subtractedSignal.append(list[i] - windowedMedianList[i])
         return subtractedSignal
     
-    def corellation(self, x):
+    def corellation(self, x: NDArray) -> NDArray:
         X = np.rfft(x)  # Compute FFT of signal x (clarify what x is here)
         autocorrelation = np.irfft(np.conj(X) * X)  # Compute autocorrelation using inverse FFT
         #The functional relationships go like this:
@@ -554,10 +593,9 @@ class AudioFile:
             # autocorrelation ~ voltage^2 vs *time lag*
         return autocorrelation
 
-    def hanningWindow(self, file_path):
-        signal, self.sr = lib.load(file_path)
-        H = np.hanning(self.N)
-        self.source = signal*H
+    def hanningWindow(self) -> NDArray:
+        H = np.hanning(len(self.source))
+        return self.source*H
 
 ############################################################################
 # END AUDIOFILE CLASS
