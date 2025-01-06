@@ -23,7 +23,7 @@ class AudioFile:
         # load wav file as array and store sample rate
         self.source, self.sr =  lib.load(file, sr=None) 
 
-        self.source = self.hanningWindow()
+        #self.source = self.hanningWindow()
 
         self.windowedSource = self.hanningWindow()
 
@@ -41,6 +41,9 @@ class AudioFile:
 
         # store number of samples in original file
         self.N: int = len(self.source)
+
+        # store time array for original signal
+        self.time: NDArray = np.arange(self.N)/self.sr
 
         # store original sample's frequency bins
         self.bins: NDArray = np.arange(len(self.fourier))
@@ -391,12 +394,18 @@ class AudioFile:
         plt.show()
 
     @staticmethod
-    def graphMeanOfMeans(directory: str, startValue: float, endValue: float, n: int) -> None:
+    def graphMeanOfMeans(directory: str, startValue: float, endValue: float, n: int, SpecificType: str = None) -> None:
         #DirectoryName = Path(r"C:\Users\spine\OneDrive\Documents\Math\Research\Quantum Graphs\ICUNJ grant 2024-25\samples")
         #directory = r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\ICUNJ-grant-audiofiles"
         nameArray = AudiofilesArray(Path(directory))
         #print(nameArray.makeFilePathList())
-        namelist = nameArray.getSpecificType("1S")
+
+        if SpecificType != None:
+            namelist = nameArray.getSpecificType(SpecificType)
+        else:
+            namelist = nameArray.getSpecificType("1S")
+            print("No additional type information was given (e.g. 1S, 2S, 2S9, 2SC, etc.) so default of 1S was used.")
+            
         # initialize an array of n-1 evenly spaced Athresh values between startValue and endValue
         A = np.linspace(startValue, endValue, n)
 
@@ -459,7 +468,7 @@ class AudioFile:
                     weight = labels[i] / meanofmeans[i]**(1 / k[idx])
                     weightfunction.append(weight)
                 
-                ax.scatter(A, weightfunction, c=labels, cmap = cmap)
+                ax.scatter(A, weightfunction, s=10, c=labels, cmap = cmap)
                 
                 #for i in range(len(A)):
                 #    ax.annotate(round(labels[i],2),(A[i], weightfunction[i]))
@@ -584,14 +593,20 @@ class AudioFile:
                 subtractedSignal.append(list[i] - windowedMedianList[i])
         return subtractedSignal
     
-    def corellation(self, x: NDArray) -> NDArray:
-        X = np.rfft(x)  # Compute FFT of signal x (clarify what x is here)
-        autocorrelation = np.irfft(np.conj(X) * X)  # Compute autocorrelation using inverse FFT
+    def autocorrelation(self) -> NDArray:
+        autocorrelation = np.fft.irfft(np.conj(self.fourier) * self.fourier)  # Compute autocorrelation using inverse FFT
         #The functional relationships go like this:
             #x ~ voltage (amplitude of digitized signal) vs time
             # X ~ voltage vs frequency
             # autocorrelation ~ voltage^2 vs *time lag*
         return autocorrelation
+
+    @staticmethod
+    def crosscorrelation(arr1: NDArray, arr2: NDArray) -> NDArray:
+        F1 = np.fft.rfft(arr1)
+        F2 = np.fft.rfft(arr2)
+
+        return np.fft.irfft(np.conj(F1) * F2)
 
     def hanningWindow(self) -> NDArray:
         H = np.hanning(len(self.source))
