@@ -15,7 +15,7 @@ NDArray = np.ndarray[Any, np.dtype[np.float64]]
 
 class AudioFile:
 
-    def __init__(self, file: str, Athresh: float):
+    def __init__(self, file: str, Athresh: float = None):
 
         ##############################################
         # attributes of the audiofile object
@@ -394,7 +394,7 @@ class AudioFile:
         plt.show()
 
     @staticmethod
-    def graphMeanOfMeans(directory: str, startValue: float, endValue: float, n: int, SpecificType: str = None) -> None:
+    def graphWeightFunction(directory: str, startValue: float, endValue: float, n: int, SpecificType: str = None) -> None:
         #DirectoryName = Path(r"C:\Users\spine\OneDrive\Documents\Math\Research\Quantum Graphs\ICUNJ grant 2024-25\samples")
         #directory = r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\ICUNJ-grant-audiofiles"
         nameArray = AudiofilesArray(Path(directory))
@@ -405,7 +405,7 @@ class AudioFile:
         else:
             namelist = nameArray.getSpecificType("1S")
             print("No additional type information was given (e.g. 1S, 2S, 2S9, 2SC, etc.) so default of 1S was used.")
-            
+
         # initialize an array of n-1 evenly spaced Athresh values between startValue and endValue
         A = np.linspace(startValue, endValue, n)
 
@@ -489,10 +489,23 @@ class AudioFile:
         plt.tight_layout(rect=(0,0,0.8,1))  
 
         # save figure to file with user input values in filename
-        plt.savefig(f'windowedfigure-{startValue}-{endValue}-{n}.png')
+        plt.savefig(f'windowedfigure-{SpecificType}-{startValue}-{endValue}-{n}.png')
 
         plt.show()
 
+    # method to plot the actual harmonic ratio array of the signal against the predicted ratio array
+    # also saves the figure to a file with all relevant info in the file name
+    def graphRatioArray(self) -> None:
+        idealRatioArray = np.rint(self.ratioArray)
+
+        plt.plot(idealRatioArray,idealRatioArray, label='theoretical')
+        plt.scatter(idealRatioArray,self.ratioArray, label='actual',c='orange')
+        plt.xlabel('harmonic number')
+        plt.ylabel('harmonic ratio')
+        plt.title(f'Actual vs Theor. harmonic ratios for {self.file} and A={self.Athresh}')
+        plt.legend()
+        plt.savefig(f'ratioarray-{self.file}-{self.Athresh}.png')
+        plt.show()
     
     @staticmethod
     def windowedGraphMeanOfMeans(directory: str, startValue: float, endValue: float, n: int) -> None:
