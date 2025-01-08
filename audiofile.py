@@ -140,7 +140,7 @@ class AudioFile:
 
         # find first index where the frequency exceeds 200
         for i in range(0, len(self.freq)-1):
-            if self.freq[i] >= 100:
+            if self.freq[i] >= 200:
                 min = i
                 break
 
@@ -161,7 +161,7 @@ class AudioFile:
     # static version of the above.  This will take in an array and an integer samplerate
     # and return 2*(array index corresp to maximum magnitude array value) 
     @staticmethod
-    def staticgetfund(array: NDArray, samplerate: int):
+    def staticgetfund(array: NDArray, samplerate: int) -> int:
         A = np.abs(array)
         F = (samplerate/len(array))*np.argmax(A[:samplerate//2 + 1])
         return F
@@ -223,8 +223,10 @@ class AudioFile:
     # current low pass is 50*fundamental + 100
     # current noise floor is 0
     def bandpass(self) -> NDArray:
-        loFthresh = int(self.dummyfundamental)-10
-        hiFthresh = 20*int(self.dummyfundamental)+100
+        R = self.N/self.sr
+
+        loFthresh = int(self.dummyfundamental*R)-10
+        hiFthresh = 20*int(self.dummyfundamental*R)+100
         Athresh = 0
 
         return AudioFile.filtersignal(self.pspec, loFthresh, hiFthresh, Athresh)
@@ -238,12 +240,18 @@ class AudioFile:
 
         Athresh = self.Athresh
 
-        return AudioFile.filtersignal(self.bandpass(),0,len(self.fourier),Athresh)
+        return AudioFile.filtersignal(array=self.bandpass(),
+                                      loFthresh=0,
+                                      hiFthresh=len(self.fourier),
+                                      Athresh=Athresh)
     
     # class method for finding peaks in the PSD of our signal with a certain width
     # current width is between 5 and 30 samples
     def findpeaks(self) -> NDArray:
-        peaks = sci.signal.find_peaks_cwt(self.filtered, widths=np.arange(5, 30))
+        R = self.N/self.sr
+        lowerBound = int(5*R)
+        upperBound = int(30*1)
+        peaks = sci.signal.find_peaks_cwt(self.filtered, widths=np.arange(lowerBound, upperBound))
 
         return peaks
     
@@ -377,7 +385,7 @@ class AudioFile:
 
     # function to plot the PSD data versus original bins
     def graph_PSD(self) -> None:
-        plt.plot(self.bins, self.pspec)
+        plt.plot(self.freq, self.pspec)
         plt.xlabel('entry number')
         plt.ylabel('Magnitude of RFFT')
         plt.title('graph of string pluck')
@@ -498,14 +506,46 @@ class AudioFile:
     def graphRatioArray(self) -> None:
         idealRatioArray = np.rint(self.ratioArray)
 
+        # the following is logic to parse the error array into positive and negative errors
+        # so that the error bars can be plotted appropriately on the figure
+        errorArray = idealRatioArray - self.ratioArray
+
+        positiveErrors = np.ones(len(idealRatioArray))
+        negativeErrors = np.zeros(len(idealRatioArray))
+
+        for i in range(len(idealRatioArray)):
+            if errorArray[i] < 0:
+                positiveErrors[i] = 0
+                negativeErrors[i] = -1
+
+        yerr = [errorArray, errorArray]
+
+        yerr[1] = yerr[0]*positiveErrors
+        yerr[0] = yerr[1]*negativeErrors
+
+        # plot the ideal ratio array
+        
         plt.plot(idealRatioArray,idealRatioArray, label='theoretical')
-        plt.scatter(idealRatioArray,self.ratioArray, label='actual',c='orange')
+
+        # plot the mean error for this sample in the bottom right 
+        plt.text(np.max(idealRatioArray)-0.01, 1, f'mean abs. error = {round(self.meanAbsoluteError,3)}\n # datapoints = {len(self.ratioArray)}', ha='right', va='bottom')
+
+        #plt.scatter(idealRatioArray,self.ratioArray, label='actual',c='orange')
+
+        # plot the actual ratio array values including error bars
+        plt.errorbar(idealRatioArray, self.ratioArray, yerr=yerr,
+                     label='actual', c='orange', marker='d', markersize=6, 
+                     linestyle='dotted', capsize=2)
+        plt.xticks(idealRatioArray)
         plt.xlabel('harmonic number')
         plt.ylabel('harmonic ratio')
         plt.title(f'Actual vs Theor. harmonic ratios for {self.file} and A={self.Athresh}')
         plt.legend()
-        plt.savefig(f'ratioarray-{self.file}-{self.Athresh}.png')
-        plt.show()
+        plt.savefig(f'ratioarray-{self.Athresh}-{self.file}.png')
+
+        # clears the figure to avoid overlays from successive iterations
+        plt.clf()
+        #plt.show()
     
     @staticmethod
     def windowedGraphMeanOfMeans(directory: str, startValue: float, endValue: float, n: int) -> None:
