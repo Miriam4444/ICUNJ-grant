@@ -63,6 +63,11 @@ class AudioFile:
         # filter the PSD to cut out frequencies below the fundamental, above a certain threshold, and below a prescribed amplitude
         self.filtered: NDArray = self.filter()
 
+        self.unfilteredpeaks, self.peakproperties = sci.signal.find_peaks(self.filtered, height = 1, distance = self.dummyfundamental//4)
+        self.prominences = sci.signal.peak_prominences(self.filtered, self.unfilteredpeaks)
+        self.meanProminence = stat.mean(self.prominences[0])
+
+
         # identify the array of peaks in the filtered signal.  **Must choose a widths array in the findpeaks method.**
         self.peaks: NDArray = self.findpeaks()
 
@@ -75,23 +80,6 @@ class AudioFile:
         # computes the array of differences: |actual - theoretical|
         self.absoluteErrorArray: NDArray = np.abs(self.ratioArray - np.rint(self.ratioArray))
         self.meanAbsoluteError: float = stat.mean(self.absoluteErrorArray)
-
-        # computes the array of relative errors
-        self.relativeErrorArray: NDArray = self.findrelativeError()
-
-        self.meanRelativeError: float = stat.mean(self.relativeErrorArray)
-        self.stdevRelativeError: float = stat.stdev(self.relativeErrorArray)
-
-        
-        #self.source = self.hanningWindow()
-        #self.windowedFourier = np.fft.rfft(self.source)
-        #self.windowedpspec = np.abs(self.windowedFourier)
-        #self.windowedFiltered = self.filter()
-        #self.windowedPeaks = self.findpeaks()
-        #self.windowedRatioArray = self.findratioArray()
-        #self.windowedAbsoluteErrorArray = np.abs(self.ratioArray - np.rint(self.ratioArray))
-        #self.windowedMeanAbsoluteError = stat.mean(self.windowedAbsoluteErrorArray)
-        
         
 
     ##########################################
@@ -247,19 +235,40 @@ class AudioFile:
     
     # class method for finding peaks in the PSD of our signal with a certain width
     # current width is between 5 and 30 samples
-    def findpeaks(self) -> NDArray:
-        R = self.N/self.sr
-        lowerBound = int(5*R)
-        upperBound = int(30*1)
-        peaks = sci.signal.find_peaks_cwt(self.filtered, widths=np.arange(lowerBound, upperBound))
+    def findpeaks(self, percentile: int = None) -> NDArray:
+        if percentile == None:
+            percentile = 0
+        
+        height = percentile/100*self.meanProminence
+        
+        peaks, peakproperties = sci.signal.find_peaks(self.filtered, height = height, distance = self.dummyfundamental//4)
 
+        '''
+        finalPeak = 0
+        for i in range(len(peaks)):
+            if self.filtered[peaks[i]]==0:
+                finalPeak = i-1
+                break
+
+        
+        offset = self.dummyfundamental*self.N/self.sr
+
+        offset = round(offset - peaks[0])
+
+        print("the offset is = ", offset)
+        
+        
+        for i in range(finalPeak):
+            peaks[i] = round(peaks[i] + offset)
+        '''
         return peaks
     
     # class method to find the array of ratios: peak frequency/fundamental frequency
     def findratioArray(self) -> NDArray:
+
         P = np.zeros(len(self.peaks))
 
-        for i in range(0,len(self.peaks)):
+        for i in range(len(self.peaks)):
             P[i] = self.freq[self.peaks[i]]
 
         fund = self.fundamental*self.sr/self.N
@@ -386,9 +395,39 @@ class AudioFile:
     # function to plot the PSD data versus original bins
     def graph_PSD(self) -> None:
         plt.plot(self.freq, self.pspec)
-        plt.xlabel('entry number')
+        plt.xlabel('frequency (Hz)')
         plt.ylabel('Magnitude of RFFT')
-        plt.title('graph of string pluck')
+        plt.title(f'Magnitude spectrum of {self.file}')
+        plt.show()
+
+    def graph_PSD_withPeaks(self) -> None:
+        peakHeight = np.zeros(len(self.peaks))
+        
+        for i in range(len(self.peaks)):
+            peakHeight[i] = self.pspec[self.peaks[i]]
+
+        R = self.sr/self.N
+
+        plt.plot(self.freq, self.pspec)
+        plt.scatter(self.peaks*R,peakHeight,c='orange',s=12)
+        plt.xlabel('frequency (Hz)')
+        plt.ylabel('Magnitude of RFFT')
+        plt.title(f'Magnitude spectrum of {self.file} with peaks')
+        plt.show()
+
+    def graph_filtersignal_withPeaks(self) -> None:
+        peakHeight = np.zeros(len(self.peaks))
+        
+        for i in range(len(self.peaks)):
+            peakHeight[i] = self.filtered[self.peaks[i]]
+
+        R = self.sr/self.N
+
+        plt.plot(self.freq, self.filtered)
+        plt.scatter(self.peaks*R,peakHeight,c='orange',s=12)
+        plt.xlabel('frequency (Hz)')
+        plt.ylabel('Magnitude of RFFT')
+        plt.title(f'Filtered magnitude spectrum of {self.file} with peaks')
         plt.show()
 
     # function to plot the PSD data versus original bins
@@ -500,6 +539,110 @@ class AudioFile:
         plt.savefig(f'windowedfigure-{SpecificType}-{startValue}-{endValue}-{n}.png')
 
         plt.show()
+
+
+    @staticmethod
+    def graphWeightFunctionProminence(directory: str, n: int, SpecificType: str = None) -> None:
+        #DirectoryName = Path(r"C:\Users\spine\OneDrive\Documents\Math\Research\Quantum Graphs\ICUNJ grant 2024-25\samples")
+        #directory = r"C:\Users\abeca\OneDrive\ICUNJ_grant_stuff\ICUNJ-grant-audiofiles"
+        nameArray = AudiofilesArray(Path(directory))
+        #print(nameArray.makeFilePathList())
+
+        startValue = 0
+        endValue = 100
+
+        if SpecificType != None:
+            namelist = nameArray.getSpecificType(SpecificType)
+        else:
+            namelist = nameArray.getSpecificType("1S")
+            print("No additional type information was given (e.g. 1S, 2S, 2S9, 2SC, etc.) so default of 1S was used.")
+
+        # initialize an array of n-1 evenly spaced Athresh values between startValue and endValue
+        A = np.linspace(startValue, endValue, n)
+
+        # initialize an empty |audiofiles| array to be populated with audiofile arrays
+        objArray = np.empty(len(namelist), dtype=AudioFile)
+        for i in range(len(namelist)):
+            objArray[i] = AudioFile(namelist[i])
+
+        # initialize an empty |A| x |audiofiles| array to be populated with the meanerror of each audiofile
+        M = np.empty(shape=(len(A),len(namelist)))
+
+        meanofmeans = list()
+        datapointsArray = np.empty(shape=(len(A),len(namelist)))
+        labels = list()
+
+        for i in range(len(A)):
+                a = A[i]
+
+                # populate the ith row of the array of audiofiles with samples corresponding to threshold a
+                for j in range(len(namelist)):
+                        objArray[j].peaks = objArray[j].findpeaks(round(a))
+
+                        # populate row a = A[i] with the relativeMeanErrors for the samples
+                        M[i][j] = objArray[j].meanAbsoluteError
+
+                        datapointsArray[i][j] = len(objArray[i][j].ratioArray)
+
+                m = stat.mean(M[i])
+
+                meanofmeans.append(m)
+
+                meandatapoints = stat.mean(datapointsArray[i])
+
+                labels.append(meandatapoints)
+
+                #print(f"the mean of the mean relative errors for Athresh {a} is {m}")
+
+        k = np.linspace(0.5, 3, 6)
+        num_plots = len(k)
+        
+        # Create subplots
+        rows = 2
+        columns = 3
+        fig, axs = plt.subplots(rows, columns, figsize=(12, 8))  
+        
+        # get colormap for the subplots
+        cmap = plt.get_cmap('viridis')
+        # normalize label values to use in colormap
+        #labelArray = np.array(labels)
+        norm = Normalize(vmin=min(labels), vmax=max(labels))
+        # create a scalar-mappable object
+        #sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        #sm.set_array([])
+
+        for idx, ax in enumerate(axs.flat):  # Flatten 2D array of axes so iteration works (I was getting an error before when I iterated)
+            if idx < num_plots:  # Only plot for valid indices
+                weightfunction = []
+                for i in range(len(A)):
+                    weight = labels[i] / meanofmeans[i]**(1 / k[idx])
+                    weightfunction.append(weight)
+                
+                ax.scatter(A, weightfunction, s=10, c=labels, cmap = cmap)
+                
+                #for i in range(len(A)):
+                #    ax.annotate(round(labels[i],2),(A[i], weightfunction[i]))
+
+                ax.set_xlabel("A")
+                ax.set_ylabel("W(k,A)")
+                ax.set_title(f"Weight = {k[idx]:.1f}")
+            else:
+                ax.set_visible(False)  # Hide unused axes
+        
+        # create the colorbar
+        smap = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        cbar = fig.colorbar(smap, ax=axs, location = "right", orientation = "vertical", pad=0.1, fraction=0.1, shrink = 0.8)
+        cbar.ax.tick_params(labelsize=10)
+        cbar.ax.set_ylabel('# data points', rotation=90, labelpad = 15, fontdict = {"size":10})   
+
+        # fix spacing between graphs and confine them to a rectangle so the colorbar can fit
+        plt.tight_layout(rect=(0,0,0.8,1))  
+
+        # save figure to file with user input values in filename
+        plt.savefig(f'windowedfigure-{SpecificType}-{startValue}-{endValue}-{n}.png')
+
+        plt.show()
+
 
     # method to plot the actual harmonic ratio array of the signal against the predicted ratio array
     # also saves the figure to a file with all relevant info in the file name
@@ -656,10 +799,24 @@ class AudioFile:
 
     @staticmethod
     def crosscorrelation(arr1: NDArray, arr2: NDArray) -> NDArray:
-        F1 = np.fft.rfft(arr1)
-        F2 = np.fft.rfft(arr2)
+        if len(arr1)==len(arr2):
+            F1 = np.fft.rfft(arr1)
+            F2 = np.fft.rfft(arr2)
+            return np.fft.irfft(np.conj(F1) * F2)
+        
+        elif len(arr1) > len(arr2):
+            Z = np.zeros(len(arr1)-len(arr2))
+            arr2 = np.concatenate((arr2,Z))
+            F1 = np.fft.rfft(arr1)
+            F2 = np.fft.rfft(arr2)
+            return np.fft.irfft(np.conj(F1) * F2)
 
-        return np.fft.irfft(np.conj(F1) * F2)
+        else:
+            Z = np.zeros(len(arr2)-len(arr1))
+            arr1 = np.concatenate((arr1,Z))
+            F1 = np.fft.rfft(arr1)
+            F2 = np.fft.rfft(arr2)
+            return np.fft.irfft(np.conj(F1) * F2)
 
     def hanningWindow(self) -> NDArray:
         H = np.hanning(len(self.source))
