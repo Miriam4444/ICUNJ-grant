@@ -1,3 +1,4 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, ListedColormap
@@ -638,6 +639,24 @@ class AudioFileProminence:
     def hanningWindow(self) -> NDArray:
         H = np.hanning(len(self.source))
         return self.source*H
+
+    @staticmethod
+    def windowedPeaks(array: NDArray, loFthresh:float, hiFthresh:float, Athresh:float, width:int, samplerate:int, percent:float) -> NDArray:
+        #fix samplerate, I think the function should be able to calculate it
+        #percent should be a decimal between 0-1
+        filteredArray = AudioFileProminence.filtersignal(array, loFthresh, hiFthresh, Athresh)
+        #filteredArray returns the thresholded array
+        splitArray = np.array_split(filteredArray, np.ceil(len(filteredArray) / width))
+        bigNewArray = np.array()
+        for i in splitArray:
+            newFundamental = AudioFileProminence.staticgetfund(i, samplerate)
+            windowedThreshold = AudioFileProminence.staticfindpeaks(i,newFundamental)
+            newAThresh = percent * min(windowedThreshold)
+            newArray = AudioFileProminence.filtersignal(windowedThreshold, loFthresh, hiFthresh, newAThresh)
+            bigNewArray.extend(newArray)
+        fundamental = AudioFileProminence.staticgetfund(bigNewArray, samplerate)
+        peakArray = AudioFileProminence.staticfindpeaks(bigNewArray, fundamental)
+        return peakArray
 
 ############################################################################
 # END AUDIOFILE CLASS
