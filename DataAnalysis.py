@@ -35,7 +35,7 @@ class DataAnalysis:
         closest_values = []
         for i, value in enumerate(self.array):
             #This part checks if it's less than whatever value you set the sampleValue to be 
-            if value <= sampleValue:
+            if abs(value - round(value)) <= sampleValue:
                 closest = self.checkIfClose(value)
                 closest_values.append(closest)
                 
@@ -51,12 +51,6 @@ class DataAnalysis:
             badData += duplicates
         else:
             print("No duplicates in converted values.")
-
-
-        if badData == 0:
-            print("Array is integer multiples with no repeating values.")
-        else:
-            print(f"There are {badData} entries that either aren't integer multiples of the fundamental or are duplicates.")
 
 
         if badData == 0:
