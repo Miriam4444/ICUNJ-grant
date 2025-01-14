@@ -14,9 +14,15 @@ class DataAnalysis:
             number = closest_int
         return number
     
-    def checkIfDecimalClose(self, decimal):
+    def checkIfDecimalClose(self, decimal, roundingPlace = None, threshold = None):
+        if threshold == None:
+            threshold = 10**(-(roundingPlace))
+        if roundingPlace == None:
+            roundingPlace = 1
+            
         for i, value in enumerate(self.array):
-            if round(value, 1) == decimal:
+            if abs(round(value, roundingPlace) - decimal) <= threshold :
+                print(value)
                 self.array.remove(value)
             
     def findDuplicates(self, array):
