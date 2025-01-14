@@ -35,7 +35,7 @@ class DataAnalysis:
         closest_values = []
         for i, value in enumerate(self.array):
             #This part checks if it's less than whatever value you set the sampleValue to be 
-            if abs(value - round(value)) <= sampleValue:
+            if abs(value - round(value)) >= sampleValue:
                 closest = self.checkIfClose(value)
                 closest_values.append(closest)
                 
