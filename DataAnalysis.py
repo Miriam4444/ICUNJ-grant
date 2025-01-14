@@ -14,6 +14,11 @@ class DataAnalysis:
             number = closest_int
         return number
     
+    def checkIfDecimalClose(self, decimal):
+        for i, value in enumerate(self.array):
+            if round(value, 1) == decimal:
+                self.array.remove(value)
+            
     def findDuplicates(self, array):
         counts = Counter(array)  # Count the amount of occurrences of each value
         duplicates = 0
