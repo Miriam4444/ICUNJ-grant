@@ -12,6 +12,8 @@ from collections import Counter
 from typing import Any
 import re
 from collections import defaultdict
+import counter
+
 
 NDArray = np.ndarray[Any, np.dtype[np.float64]]
 
@@ -717,8 +719,8 @@ class AudioFileProminence:
             
 
 
-        plt.scatter(fundamentals, np.round(M,2))
-        plt.show()
+        #plt.scatter(fundamentals, np.round(M,2))
+        #plt.show()
 
             #meanofmeans.append(m)
 
@@ -844,11 +846,34 @@ class AudioFileProminence:
             file_entries.extend(current_entries)
         
         return file_entries
+    
+    @staticmethod
+    def roundEntries(fileName : str, roundingValue : int) -> list:
+        all_entries = AudioFileProminence.analyzeTextFile(fileName)
+        roundedEntries = []
+        duplicates = []
+        for i in all_entries:
+            if all_entries.count(i) != 0:
+                duplicates.append([f'{i} , number of times: {all_entries.count(i)}'])
+        return duplicates
+        '''
+        for i in all_entries:
+            roundedEntry = round(i, roundingValue)
+            roundedEntries.append(roundedEntry)
+        for i in range(len(roundedEntries)):
+            for j in (range(i + 1, len(roundedEntries))):
+                if roundedEntries[i] == roundedEntries[j]:
+                    duplicates.append(roundedEntries[i])
+
+                    '''
+
+
+
 
     @staticmethod
     def findDuplicatesInEntryList(fileName : str, equalityThreshold : float, roundMeanValue : int) -> None:
         all_entries = AudioFileProminence.analyzeTextFile(fileName)
-        duplicateInfo = []
+        #duplicateInfo = []
         listOfDuplicates = []
         #bigList = []
 
@@ -884,17 +909,17 @@ class AudioFileProminence:
                         miniDuplicates.append(entry_i)
 
             #calculate mean of duplicates -> this is my way of deciding which specific value we choose to be the repeating value because we're rounding
-            if miniDuplicates:
+            if len(miniDuplicates) != 0:
                 meanOfDuplicates = round(stat.mean(miniDuplicates), roundMeanValue)
-                duplicateInfo.append([f'Repeated value: {meanOfDuplicates} | how many times it shows up: {len(miniDuplicates)}'])
+                listOfDuplicates.append([f'Repeated value: {meanOfDuplicates} | how many times it shows up: {len(miniDuplicates)}'])
                 #mean, numberOfDuplicateEntries = duplicateInfo[file_name]
                 #print(f'Duplicate value = {mean} | Number of duplicates = {numberOfDuplicateEntries}')
         open(f"duplicateInfo for {fileName}", "w")
-        for i in (duplicateInfo):
+        for i in (listOfDuplicates):
             with open(f"duplicateInfo for {fileName}", "a") as f:
                 f.write(f'{i}\n')
         f.close
-        print(duplicateInfo)
+        print(listOfDuplicates)
 
     @staticmethod
     def findRepeats(list, sampleValue):
