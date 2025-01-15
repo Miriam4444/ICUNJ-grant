@@ -832,7 +832,7 @@ class AudioFileProminence:
             match = re.match(r"^([\w\d]+\.wav),", line)
             if match:
                 if current_entries:
-                    file_entries.append((current_file, current_entries))
+                    file_entries.extend(current_entries)
                 current_file = match.group(1)
                 current_entries = []
             elif current_file:
@@ -841,52 +841,66 @@ class AudioFileProminence:
                     entry_value = entry_match.group(1)
                     current_entries.append(entry_value)
         if current_entries:
-            file_entries.append((current_file, current_entries))
+            file_entries.extend(current_entries)
         
         return file_entries
 
     @staticmethod
-    def findDuplicatesInEntryList(fileName, equalityThreshold, roundMeanValue):
+    def findDuplicatesInEntryList(fileName : str, equalityThreshold : float, roundMeanValue : int) -> None:
         all_entries = AudioFileProminence.analyzeTextFile(fileName)
         duplicateInfo = []
+        listOfDuplicates = []
+        #bigList = []
 
-        for entries in all_entries:
-            file_name = entries[0] 
-            listOfDuplicates = []
+        #for entries in all_entries:
+            #file_name = entries[0] 
+            #listOfDuplicates = []
+            
 
-            numeric_entries = entries[1]
+            #numeric_entries = entries[1]
+            #for sublist in numeric_entries:
+                #bigList.extend(sublist)
 
-            for i in range(len(numeric_entries)):
-                listOfDuplicates = []
+            #print(bigList)
+
+
+            #listOfDuplicates = []
+        for i in range(len(all_entries)):
+            miniDuplicates = []
+            try:
+                entry_i = float(all_entries[i])
+            except ValueError:
+                continue  
+
+            for j in range(i+1, len(all_entries)):
                 try:
-                    entry_i = float(numeric_entries[i])
+                    entry_j = float(all_entries[j])
                 except ValueError:
-                    continue  
+                    continue 
+                if abs(entry_i - entry_j) <= equalityThreshold:
+                    if entry_j not in listOfDuplicates:
+                        miniDuplicates.append(entry_j)
+                    if entry_i not in listOfDuplicates:
+                        miniDuplicates.append(entry_i)
 
-                for j in range(i+1, len(numeric_entries)):
-                    try:
-                        entry_j = float(numeric_entries[j])
-                    except ValueError:
-                        continue 
-                    if abs(entry_i - entry_j) <= equalityThreshold:
-                        if entry_j not in listOfDuplicates:
-                            listOfDuplicates.append(entry_j)
-                        if entry_i not in listOfDuplicates:
-                            listOfDuplicates.append(entry_i)
-
-                #calculate mean of duplicates -> this is my way of deciding which specific value we choose to be the repeating value because we're rounding
-                if listOfDuplicates:
-                    meanOfDuplicates = round(stat.mean(listOfDuplicates), roundMeanValue)
-                    duplicateInfo.append([file_name, meanOfDuplicates, len(listOfDuplicates)])
+            #calculate mean of duplicates -> this is my way of deciding which specific value we choose to be the repeating value because we're rounding
+            if miniDuplicates:
+                meanOfDuplicates = round(stat.mean(miniDuplicates), roundMeanValue)
+                duplicateInfo.append([f'Repeated value: {meanOfDuplicates} | how many times it shows up: {len(miniDuplicates)}'])
                 #mean, numberOfDuplicateEntries = duplicateInfo[file_name]
                 #print(f'Duplicate value = {mean} | Number of duplicates = {numberOfDuplicateEntries}')
+        open(f"duplicateInfo for {fileName}", "w")
+        for i in (duplicateInfo):
+            with open(f"duplicateInfo for {fileName}", "a") as f:
+                f.write(f'{i}\n')
+        f.close
         print(duplicateInfo)
 
     @staticmethod
     def findRepeats(list, sampleValue):
         da = DataAnalysis(list)
-        listOfRepeats = DataAnalysis.checkData(sampleValue)
-        print(DataAnalysis.findDuplicates(listOfRepeats))
+        listOfRepeats = da.checkData(sampleValue)
+        print(da.findDuplicates(listOfRepeats))
 
 
 
