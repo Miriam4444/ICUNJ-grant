@@ -42,6 +42,7 @@ class DataAnalysis:
 
     def checkData(self , sampleValue):
         #Function checks if data is integer multiples and if there are no duplicates
+        listOfNonInt = []
         badData = 0
         closest_values = []
         for i, value in enumerate(self.array):
@@ -52,6 +53,7 @@ class DataAnalysis:
                 
                 if not isinstance(closest, int):  # Not an integer multiple
                     print(f'There\'s a non-integer multiple at entry #{i + 1}. Entry: "{value}"')
+                    listOfNonInt.append(value)
                     badData += 1
             else:
                 pass
@@ -68,6 +70,7 @@ class DataAnalysis:
             print("Array is integer multiples with no repeating values.")
         else:
             print(f"There are {badData} entries that either aren't integer multiples of the fundamental or are duplicates.")
+        return listOfNonInt
 
     def checkDataTextFile(self, sampleValue, fileName):
         #Function checks if data is integer multiples and if there are no duplicates
