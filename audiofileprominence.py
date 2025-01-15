@@ -885,7 +885,9 @@ class AudioFileProminence:
     @staticmethod
     def findRepeats(list, sampleValue):
         da = DataAnalysis(list)
-        DataAnalysis.checkData(sampleValue)
+        listOfRepeats = DataAnalysis.checkData(sampleValue)
+        print(DataAnalysis.findDuplicates(listOfRepeats))
+
 
 
 
