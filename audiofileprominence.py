@@ -882,6 +882,11 @@ class AudioFileProminence:
                 #print(f'Duplicate value = {mean} | Number of duplicates = {numberOfDuplicateEntries}')
         print(duplicateInfo)
 
+    @staticmethod
+    def findRepeats(list, sampleValue):
+        da = DataAnalysis(list)
+        DataAnalysis.checkData(sampleValue)
+
 
 
 ############################################################################
