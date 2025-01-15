@@ -10,6 +10,8 @@ from DataAnalysis import DataAnalysis
 from pathlib import Path
 from collections import Counter
 from typing import Any
+import re
+from collections import defaultdict
 
 NDArray = np.ndarray[Any, np.dtype[np.float64]]
 
@@ -699,17 +701,19 @@ class AudioFileProminence:
 
 
 
-            print(f'{objArray[i].file}, mean error = {M[i]}, # datapoints = {datapointsArray[i]}, # removed = {counter}')
+            #print(f'{objArray[i].file}, mean error = {M[i]}, # datapoints = {datapointsArray[i]}, # removed = {counter}')
             DA = DataAnalysis(windowedRatioArray)
-            DA.checkData(sampleValue=0.2)
+            #DA.checkDataTextFile(sampleValue=0.2, fileName=f"AggError-{SpecificType}-{numberOfFundamentalsInWindow}-{percentile}.txt")
             
-            #with open(f"AggError-{SpecificType}-{numberOfFundamentalsInWindow}-{percentile}.txt", "a") as f:
-            #    f.write(f'{objArray[i].file}, fundamental = {round(objArray[i].dummyfundamental)}, mean error = {M[i]}, # datapoints = {datapointsArray[i]}, # removed = {counter}\n')
+            with open(f"AggError-{SpecificType}-{numberOfFundamentalsInWindow}-{percentile}.txt", "a") as f:
+                f.write(f'{objArray[i].file}, fundamental = {round(objArray[i].dummyfundamental)}, mean error = {M[i]}, # datapoints = {datapointsArray[i]}, # removed = {counter}\n')
+                #f.write(f'{DA.checkData(sampleValue=0.2)}\n')
+            DA.checkDataTextFile(sampleValue=0.2, fileName=f"AggError-{SpecificType}-{numberOfFundamentalsInWindow}-{percentile}.txt")
 
         m = stat.mean(M)
 
-        #with open(f"AggError-{SpecificType}-{numberOfFundamentalsInWindow}-{percentile}.txt", "a") as f:
-        #    f.write(f'mean of mean absolute errors = {m}')
+        with open(f"AggError-{SpecificType}-{numberOfFundamentalsInWindow}-{percentile}.txt", "a") as f:
+            f.write(f'mean of mean absolute errors = {m}\n')
             
 
 
@@ -814,6 +818,71 @@ class AudioFileProminence:
     def hanningWindow(self) -> NDArray:
         H = np.hanning(len(self.source))
         return self.source*H
+    
+    @staticmethod
+    def analyzeTextFile(file_name):
+        file_entries = []
+        current_entries = []
+        with open(file_name, "r") as file:
+            lines = file.readlines()
+        
+        current_file = None
+        for line in lines:
+            # Check if line starts with a file name (e.g., 1SCD01.wav)
+            match = re.match(r"^([\w\d]+\.wav),", line)
+            if match:
+                if current_entries:
+                    file_entries.append((current_file, current_entries))
+                current_file = match.group(1)
+                current_entries = []
+            elif current_file:
+                entry_match = re.search(r'Entry: "([\d.]+)"', line)
+                if entry_match:
+                    entry_value = entry_match.group(1)
+                    current_entries.append(entry_value)
+        if current_entries:
+            file_entries.append((current_file, current_entries))
+        
+        return file_entries
+
+    @staticmethod
+    def findDuplicatesInEntryList(fileName, equalityThreshold, roundMeanValue):
+        all_entries = AudioFileProminence.analyzeTextFile(fileName)
+        duplicateInfo = []
+
+        for entries in all_entries:
+            file_name = entries[0] 
+            listOfDuplicates = []
+
+            numeric_entries = entries[1]
+
+            for i in range(len(numeric_entries)):
+                listOfDuplicates = []
+                try:
+                    entry_i = float(numeric_entries[i])
+                except ValueError:
+                    continue  
+
+                for j in range(i+1, len(numeric_entries)):
+                    try:
+                        entry_j = float(numeric_entries[j])
+                    except ValueError:
+                        continue 
+                    if abs(entry_i - entry_j) <= equalityThreshold:
+                        if entry_j not in listOfDuplicates:
+                            listOfDuplicates.append(entry_j)
+                        if entry_i not in listOfDuplicates:
+                            listOfDuplicates.append(entry_i)
+
+                #calculate mean of duplicates -> this is my way of deciding which specific value we choose to be the repeating value because we're rounding
+                if listOfDuplicates:
+                    meanOfDuplicates = round(stat.mean(listOfDuplicates), roundMeanValue)
+                    duplicateInfo.append([file_name, meanOfDuplicates, len(listOfDuplicates)])
+                #mean, numberOfDuplicateEntries = duplicateInfo[file_name]
+                #print(f'Duplicate value = {mean} | Number of duplicates = {numberOfDuplicateEntries}')
+        print(duplicateInfo)
+
+
 
 ############################################################################
 # END AUDIOFILE CLASS
