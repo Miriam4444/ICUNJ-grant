@@ -1,4 +1,3 @@
-
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, ListedColormap
@@ -112,7 +111,7 @@ class AudioFileProminence:
 
         # find first index where the frequency exceeds 600
         for j in range(min,len(self.freq)-1):
-            if self.freq[j] >= 500:
+            if self.freq[j] >= 400:
                 max = j
                 break
 
@@ -212,17 +211,113 @@ class AudioFileProminence:
         if height == None:
             height = 0
         if distance == None:
-            distance = 0
+            distance = 1
 
-        peaks, peakproperties = sci.signal.find_peaks(array, height = height, distance = distance)
+        #peaks, peakproperties = sci.signal.find_peaks(array, height = height, distance = distance)
 
-        meanProminence = stat.mean(sci.signal.peak_prominences(array, peaks)[0])
+        peaks = sci.signal.find_peaks(array, height = height, distance = distance)[0]
+
+        if peaks.shape[0] == 0:
+            meanProminence = 0
+        else:
+            meanProminence = stat.mean(sci.signal.peak_prominences(array, peaks)[0])
 
         percentile = percentile/100*meanProminence
         
         peaks, peakproperties = sci.signal.find_peaks(array, height = height, prominence = percentile, distance = distance)
 
         return peaks
+    
+
+    def windowedPeaks(self, numberFundamentalsInWindow: int, percentile: float) -> NDArray:
+        # number of suspected harmonics we want to be present in our window (integer multiple of fundamental freq)
+        numberFundamentalsInWindow = int(numberFundamentalsInWindow)
+
+        # ratio to convert from Hz to bins
+        R = self.N/self.sr
+
+        # fundamental freq in bins
+        fund = self.dummyfundamental*R
+
+        loPass = 16*self.dummyfundamental*R
+
+        # hiPass the magnitude spectrum to cut room noise
+        signal = AudioFileProminence.filtersignal(self.magspec, fund-50, loPass, 0)
+
+        # initial minimal index for our window
+        minIndex = round(fund/2)
+
+        # total number of windows we will consider
+        numberWindows = round((loPass-fund)/(fund*numberFundamentalsInWindow))
+
+        # initialize an empty array of peaks to be populated later
+        peaks = np.array([], dtype=int)
+
+        for i in range(numberWindows):
+
+            # width of the window that will slide through the signal to ID peaks
+            windowWidth = round(numberFundamentalsInWindow*fund)
+
+            # window indices in bins
+            window = self.bins[minIndex + i*windowWidth: minIndex + (i+1)*windowWidth]
+
+            tempPeaks = AudioFileProminence.staticfindpeaks(signal[window], percentile=10, height=0, distance=fund//10)
+            
+            tempPeakHeights = signal[tempPeaks + minIndex + i*windowWidth]
+
+            # sort the indices of the peaks from shortest to tallest
+            tempPeakHeightIndices = np.argsort(tempPeakHeights)
+            # rearrange the peak heights in ascending order
+            tempPeakHeights = tempPeakHeights[tempPeakHeightIndices]
+
+            # set the threshold to the percentile/100 * (shortest suspected harmonic spike in window)
+            threshold = (percentile/100)*tempPeakHeights[len(tempPeaks)-numberFundamentalsInWindow]
+
+            tempPeaks = AudioFileProminence.staticfindpeaks(signal[window], percentile=1, height=threshold, distance=fund//6)
+
+            windowedRatioArray = (tempPeaks + minIndex + i*windowWidth)/fund
+
+            E = round(stat.mean(np.abs(windowedRatioArray - np.rint(windowedRatioArray))),3)
+            StD = round(stat.stdev(np.abs(windowedRatioArray - np.rint(windowedRatioArray))),3)
+            
+            '''
+            fig, ax = plt.subplots()
+            fig.set_figheight(6)
+            fig.set_figwidth(8)
+            ax.plot(window/R, signal[window])
+            ax.scatter((tempPeaks + minIndex + i*windowWidth)/R, self.magspec[tempPeaks + minIndex + i*windowWidth], c='orange')
+            ax.set_title(f'windowed peaks of {self.file} with width {numberFundamentalsInWindow}*{round(self.dummyfundamental)}')
+            plt.text(x=0.75,y=0.9, s=f'threshold = {round(threshold,2)}', transform=ax.transAxes)
+            plt.text(x=0.75,y=0.85, s=f'# peaks found = {len(tempPeaks)}', transform=ax.transAxes)
+            plt.text(x=0.75,y=0.8, s=f'Err = {E}',transform=ax.transAxes)
+            plt.show()
+            '''
+
+            peaks = np.concatenate((peaks,tempPeaks + minIndex + i*windowWidth))
+
+        '''
+        for i in range(numberWindows-1):
+            maxIndex = round(minIndex*(i+1) + windowWidth*fund)
+            
+            print(maxIndex)
+
+            window = self.magspec[minIndex*(i+1)-20:maxIndex+20]
+
+            tempPeaks = AudioFileProminence.staticfindpeaks(window, percentile=5, distance=fund//8)
+            
+            tempPeakHeights = self.magspec[tempPeaks]
+            tempPeakHeightIndices = np.argsort(tempPeakHeights)
+            tempPeakHeights = tempPeakHeights[tempPeakHeightIndices]
+
+            threshold = percentile/100*tempPeaks[len(tempPeaks)-windowWidth-1]
+
+            tempPeaks = AudioFileProminence.staticfindpeaks(window, percentile=1, height=threshold, distance=fund//8)
+
+            peaks = np.concatenate((peaks,tempPeaks))
+        '''
+            
+        return peaks
+            
 
     @staticmethod
     def moving_average(array: NDArray, width: int = 3):
@@ -316,8 +411,8 @@ class AudioFileProminence:
         plt.ylabel('Magnitude of RFFT')
         plt.title(f'Magnitude spectrum of {self.file} with peaks')
         plt.savefig(f'peaks-{percentile}perc-{self.file}.png')
-        plt.clf()
-        #plt.show()
+        #plt.clf()
+        plt.show()
 
     def graph_filtersignal_withPeaks(self, percentile: float, loFthresh: float, hiFthresh: float, Athresh: float) -> None:
         peakHeight = np.zeros(len(self.findpeaks(percentile=percentile)))
@@ -550,6 +645,86 @@ class AudioFileProminence:
         plt.show()
 
 
+    @staticmethod
+    def printAggregateError(directory: str, numberOfFundamentalsInWindow: int, percentile: float, badData: list = None, SpecificType: str = None) -> None:
+        nameArray = AudiofilesArray(Path(directory))
+
+        if SpecificType != None:
+            namelist = nameArray.getSpecificType(SpecificType)
+        else:
+            namelist = nameArray.getSpecificType("1S")
+            print("No additional type information was given (e.g. 1S, 2S, 2S9, 2SC, etc.) so default of 1S was used.")
+
+        # initialize an empty |audiofiles| array to be populated with audiofile arrays
+        objArray = np.empty(len(namelist), dtype=AudioFileProminence)
+        for i in range(len(namelist)):
+            objArray[i] = AudioFileProminence(namelist[i])
+
+        # initialize an empty |audiofiles| array to be populated with the meanerror of each audiofile
+        M = np.empty(len(namelist))
+
+        meanofmeans = list()
+        datapointsArray = list()
+        fundamentals = np.empty(len(namelist))
+
+        #open(f"AggError-{SpecificType}-{numberOfFundamentalsInWindow}-{percentile}.txt", "w").close()
+        
+
+        for i in range(len(objArray)):
+            fundamentals[i] = round(objArray[i].dummyfundamental)
+
+            R = objArray[i].N/objArray[i].sr
+            fund = objArray[i].dummyfundamental*R
+            
+            windowedPeaks = objArray[i].windowedPeaks(numberOfFundamentalsInWindow, percentile)
+
+            windowedRatioArray = windowedPeaks/fund
+
+            counter = 0
+
+            if badData != None:
+                DA = DataAnalysis(windowedRatioArray)
+                for value in badData:
+                    counter = counter + DA.checkIfDecimalClose(decimal= value, roundingPlace=1)
+                windowedRatioArray = DA.array
+            
+
+            E = round(stat.mean(np.abs(windowedRatioArray - np.rint(windowedRatioArray))),3)
+
+            StD = round(stat.stdev(np.abs(windowedRatioArray - np.rint(windowedRatioArray))),3)
+
+            M[i] = E
+
+            datapointsArray.append(len(windowedRatioArray))
+
+
+
+            print(f'{objArray[i].file}, mean error = {M[i]}, # datapoints = {datapointsArray[i]}, # removed = {counter}')
+            DA = DataAnalysis(windowedRatioArray)
+            DA.checkData(sampleValue=0.2)
+            
+            #with open(f"AggError-{SpecificType}-{numberOfFundamentalsInWindow}-{percentile}.txt", "a") as f:
+            #    f.write(f'{objArray[i].file}, fundamental = {round(objArray[i].dummyfundamental)}, mean error = {M[i]}, # datapoints = {datapointsArray[i]}, # removed = {counter}\n')
+
+        m = stat.mean(M)
+
+        #with open(f"AggError-{SpecificType}-{numberOfFundamentalsInWindow}-{percentile}.txt", "a") as f:
+        #    f.write(f'mean of mean absolute errors = {m}')
+            
+
+
+        plt.scatter(fundamentals, np.round(M,2))
+        plt.show()
+
+            #meanofmeans.append(m)
+
+            #meandatapoints = stat.mean(datapointsArray[i])
+
+            #labels.append(meandatapoints)
+
+            #print(f"the mean of the mean relative errors for Athresh {a} is {m}")
+
+
     # method to plot the actual harmonic ratio array of the signal against the predicted ratio array
     # also saves the figure to a file with all relevant info in the file name
     def graphRatioArray(self, percentile: float) -> None:
@@ -639,24 +814,6 @@ class AudioFileProminence:
     def hanningWindow(self) -> NDArray:
         H = np.hanning(len(self.source))
         return self.source*H
-
-    @staticmethod
-    def windowedPeaks(array: NDArray, loFthresh:float, hiFthresh:float, Athresh:float, width:int, samplerate:int, percent:float) -> NDArray:
-        #fix samplerate, I think the function should be able to calculate it
-        #percent should be a decimal between 0-1
-        filteredArray = AudioFileProminence.filtersignal(array, loFthresh, hiFthresh, Athresh)
-        #filteredArray returns the thresholded array
-        splitArray = np.array_split(filteredArray, np.ceil(len(filteredArray) / width))
-        bigNewArray = np.array()
-        for i in splitArray:
-            newFundamental = AudioFileProminence.staticgetfund(i, samplerate)
-            windowedThreshold = AudioFileProminence.staticfindpeaks(i,newFundamental)
-            newAThresh = percent * min(windowedThreshold)
-            newArray = AudioFileProminence.filtersignal(windowedThreshold, loFthresh, hiFthresh, newAThresh)
-            bigNewArray.extend(newArray)
-        fundamental = AudioFileProminence.staticgetfund(bigNewArray, samplerate)
-        peakArray = AudioFileProminence.staticfindpeaks(bigNewArray, fundamental)
-        return peakArray
 
 ############################################################################
 # END AUDIOFILE CLASS
