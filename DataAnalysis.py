@@ -68,3 +68,36 @@ class DataAnalysis:
             print("Array is integer multiples with no repeating values.")
         else:
             print(f"There are {badData} entries that either aren't integer multiples of the fundamental or are duplicates.")
+
+    def checkDataTextFile(self, sampleValue, fileName):
+        #Function checks if data is integer multiples and if there are no duplicates
+        badData = 0
+        closest_values = []
+        for i, value in enumerate(self.array):
+            #This part checks if it's less than whatever value you set the sampleValue to be 
+            if abs(value - round(value)) >= sampleValue:
+                closest = self.checkIfClose(value)
+                closest_values.append(closest)
+                
+                if not isinstance(closest, int):  # Not an integer multiple
+                    with open(f"{fileName}", "a") as f:
+                        f.write(f'There\'s a non-integer multiple at entry #{i + 1}. Entry: "{value}"\n')
+                    badData += 1
+            else:
+                pass
+        #we're going to run the findDuplicates function with the parameter closest_values which is the list of all of the whole numbers or bad decimal data
+        duplicates = self.findDuplicates(closest_values)
+        if duplicates > 0:
+            #print(f"Duplicates: {duplicates}")
+            badData += duplicates
+        else:
+            with open(f"{fileName}", "a") as f:
+                f.write("No duplicates in converted values.\n")
+
+
+        if badData == 0:
+            with open(f"{fileName}", "a") as f:
+                f.write("Array is integer multiples with no repeating values.\n")
+        else:
+            with open(f"{fileName}", "a") as f:
+                f.write(f"There are {badData} entries that either aren't integer multiples of the fundamental or are duplicates.\n")
