@@ -8,13 +8,13 @@ class DataAnalysis:
         self.valid_data = True
         self.max_difference = .1 #max_difference is how far away from an integer multiple we're considering to be a good value
 
-    def checkIfClose(self, number):
+    def checkIfClose(self, number : float) -> float:
         closest_int = round(number)
         if abs(closest_int - number) <= self.max_difference:
             number = closest_int
         return number
     
-    def checkIfDecimalClose(self, decimal, roundingPlace = None, threshold = None):
+    def checkIfDecimalClose(self, decimal : float, roundingPlace : int = None, threshold : float = None) -> None:
         if threshold == None:
             threshold = 10**(-(roundingPlace))
         if roundingPlace == None:
@@ -25,7 +25,8 @@ class DataAnalysis:
                 print(value)
                 self.array.remove(value)
             
-    def findDuplicates(self, array):
+    @staticmethod
+    def findDuplicates(array : list):
         counts = Counter(array)  # Count the amount of occurrences of each value
         duplicates = 0
         seen = set()  # Track already seen values in set()
@@ -40,8 +41,9 @@ class DataAnalysis:
         return duplicates
 
 
-    def checkData(self , sampleValue):
+    def checkData(self , sampleValue : float):
         #Function checks if data is integer multiples and if there are no duplicates
+        #sample value is the value of the furthest distance that you consider to still be an integer multiple of the fundamental
         listOfNonInt = []
         badData = 0
         closest_values = []
@@ -72,7 +74,7 @@ class DataAnalysis:
             print(f"There are {badData} entries that either aren't integer multiples of the fundamental or are duplicates.")
         return listOfNonInt
 
-    def checkDataTextFile(self, sampleValue, fileName):
+    def checkDataTextFile(self, sampleValue : float, fileName : str) -> None:
         #Function checks if data is integer multiples and if there are no duplicates
         badData = 0
         closest_values = []
