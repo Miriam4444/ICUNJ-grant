@@ -9,13 +9,14 @@ import statistics as stat
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy as sci
+import memspectrum
 
 if __name__ == "__main__":
-        #DirectoryName = Path(r"C:\Users\spine\OneDrive\Documents\Math\Research\Quantum Graphs\ICUNJ grant 2024-25\samples")
-        nameArray = AudiofilesArray(Path(r"C:\Users\spine\OneDrive\Documents\Math\Research\Quantum Graphs\ICUNJ grant 2024-25\samples\longer clips"))
+        DirectoryName = Path(r"C:\Users\spine\OneDrive\Documents\Math\Research\Quantum Graphs\ICUNJ grant 2024-25\samples\3-string")
+        nameArray = AudiofilesArray(DirectoryName)
         #print(nameArray.makeFilePathList())
-        namelist = nameArray.getSpecificType("1S")
-        namelist2 = nameArray.getSpecificType("2S9RC1")
+        namelist = nameArray.getSpecificType("3TL")
+        namelist2 = nameArray.getSpecificType("2S9RCf")
 
         print("*************************************************************************")
 
@@ -49,17 +50,108 @@ if __name__ == "__main__":
         #afp.graphWeightFunctionProminence(r"C:\Users\spine\OneDrive\Documents\Math\Research\Quantum Graphs\ICUNJ grant 2024-25\samples\longer clips", 
         #                                  n=20, SpecificType="1S")
 
-
-        for filename in namelist2:
-                audiofileList.append(afp(filename))
-                
-        for sample in audiofileList:
-                sample.graphRatioArray(percentile=20)
+        p = 12
 
 
-        audiofileList[2].graph_PSD_withPeaks(percentile=25)
 
-        audiofileList[3].graph_PSD_withPeaks(percentile=25)
+        #afp.printAggregateError(directory=DirectoryName, numberOfFundamentalsInWindow=5, percentile=25, SpecificType='2S')
+        #print(afp.roundEntries(fileName="AggError-1S-5-80.txt", roundingValue=2))
+
+        #afp.findDuplicatesInEntryList("AggError-1S-5-80.txt", 0.1, 2)
+        
+        S = afp(namelist[10])
+
+        S.graph_magspec()
+
+        
+        #for filename in namelist:
+        #        audiofileList.append(afp(filename))
+
+        
+
+        '''
+        S = audiofileList[5]
+
+        windowedPeaks = S.windowedPeaks(numberFundamentalsInWindow=5,percentile=80)
+        peaks = S.findpeaks(percentile=15)
+
+        R = S.N/S.sr
+        fund = S.dummyfundamental*R
+
+        windowedRatioArray = windowedPeaks/fund
+
+        afp.findRepeats(windowedRatioArray,0.1)
+        '''
+
+
+        
+
+        #for i in range(20,23):
+        #        S = audiofileList[i]
+        #        S.graph_magspec_withPeaks(percentile = p)
+        
+
+        '''
+
+        windowedPeaks = S.windowedPeaks(numberFundamentalsInWindow=5,percentile=80)
+        peaks = S.findpeaks(percentile=15)
+
+        R = S.N/S.sr
+        fund = S.dummyfundamental*R
+
+        windowedRatioArray = windowedPeaks/fund
+
+        E = round(stat.mean(np.abs(windowedRatioArray - np.rint(windowedRatioArray))),3)
+        StD = round(stat.stdev(np.abs(windowedRatioArray - np.rint(windowedRatioArray))),3)
+
+        plt.figure(figsize=(8,6))
+
+        plt.subplot(2,1,1)
+        plt.plot(S.freq,S.magspec)
+        plt.scatter(peaks*S.sr/S.N,S.magspec[peaks], c='orange')
+        plt.title(f'{S.file} unwindowed peaks with (Err,StD) = {(round(S.findAbsoluteError(percentile = 15)[0],3),round(S.findAbsoluteError(percentile = 15)[1],3))}')
+
+        plt.subplot(2,1,2)
+        plt.plot(S.freq,S.magspec)
+        plt.scatter(windowedPeaks*S.sr/S.N,S.magspec[windowedPeaks], c='orange')
+        plt.title(f'{S.file} windowed peaks with (Err,StD) = {E,StD}')
+
+        plt.tight_layout()
+        plt.show()
+        '''
+        '''
+        m = memspectrum.MESA()
+        m.solve(af.filtersignal(audiofileList[3].source, S.dummyfundamental-20, S.N, 0), method = 'Standard', optimisation_method = 'VM')
+        f_mesa, psd_mesa = m.spectrum(dt = 1./audiofileList[3].sr, onesided = True)
+
+        mesa_peaks = afp.staticfindpeaks(psd_mesa, percentile=5)
+
+
+
+        plt.subplot(2,1,1)
+        plt.plot(f_mesa,psd_mesa)
+        plt.scatter(mesa_peaks*S.sr/S.N, psd_mesa[mesa_peaks], c='orange')
+        
+        plt.subplot(2,1,2)
+        plt.plot(S.freq,S.magspec)
+        plt.show()
+
+        print(mesa_peaks*S.sr/S.N/S.dummyfundamental)
+        '''
+        
+        #for sample in audiofileList:
+        #        sample.graphRatioArray(percentile=p)
+        #        sample.graph_magspec_withPeaks(percentile=p)
+
+
+        #audiofileList[2].graph_magspec_withPeaks(p)
+
+        #audiofileList[2].graph_magspec_withPeaks(percentile=25)
+        #audiofileList[2].graphRatioArray(percentile=p)
+
+
+
+        #audiofileList[3].graph_PSD_withPeaks(percentile=25)
 
         #plt.plot(sample.freq,sample.pspec)
         #plt.show()
