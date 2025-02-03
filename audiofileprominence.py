@@ -1,3 +1,4 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, ListedColormap
@@ -12,7 +13,7 @@ from collections import Counter
 from typing import Any
 import re
 from collections import defaultdict
-import counter
+#import counter
 
 
 NDArray = np.ndarray[Any, np.dtype[np.float64]]
@@ -650,7 +651,7 @@ class AudioFileProminence:
 
 
     @staticmethod
-    def printAggregateError(directory: str, numberOfFundamentalsInWindow: int, percentile: float, badData: list = None, SpecificType: str = None) -> None:
+    def printAggregateError(directory: str, numberOfFundamentalsInWindow: int, percentile: float, badData: list = None, SpecificType: str = None) -> dict:
         nameArray = AudiofilesArray(Path(directory))
 
         if SpecificType != None:
@@ -673,7 +674,7 @@ class AudioFileProminence:
 
         #open(f"AggError-{SpecificType}-{numberOfFundamentalsInWindow}-{percentile}.txt", "w").close()
         
-
+        fundamentalVsNonInt = {}
         for i in range(len(objArray)):
             fundamentals[i] = round(objArray[i].dummyfundamental)
 
@@ -710,12 +711,16 @@ class AudioFileProminence:
             with open(f"AggError-{SpecificType}-{numberOfFundamentalsInWindow}-{percentile}.txt", "a") as f:
                 f.write(f'{objArray[i].file}, fundamental = {round(objArray[i].dummyfundamental)}, mean error = {M[i]}, # datapoints = {datapointsArray[i]}, # removed = {counter}\n')
                 #f.write(f'{DA.checkData(sampleValue=0.2)}\n')
-            DA.checkDataTextFile(sampleValue=0.2, fileName=f"AggError-{SpecificType}-{numberOfFundamentalsInWindow}-{percentile}.txt")
+            nonInt = DA.checkDataTextFile(sampleValue=0.2, fileName=f"AggError-{SpecificType}-{numberOfFundamentalsInWindow}-{percentile}.txt")
+            for i in enumerate(nonInt):
+                fundamentalVsNonInt[round(objArray[i].dummyfundamental)]= i
 
         m = stat.mean(M)
 
         with open(f"AggError-{SpecificType}-{numberOfFundamentalsInWindow}-{percentile}.txt", "a") as f:
             f.write(f'mean of mean absolute errors = {m}\n')
+        
+        return fundamentalVsNonInt
             
 
 
@@ -729,6 +734,26 @@ class AudioFileProminence:
             #labels.append(meandatapoints)
 
             #print(f"the mean of the mean relative errors for Athresh {a} is {m}")
+
+    #method to graph non int value vs fundamental
+    @staticmethod
+    def graphRegression(directory: str, numberOfFundamentalsInWindow: int, percentile: float, badData: list = None, SpecificType: str = None):
+        dictOfPoints = AudioFileProminence.printAggregateError(directory, numberOfFundamentalsInWindow, percentile, badData, SpecificType)
+        x_values = list(dictOfPoints.keys())
+        nonInt = list(dictOfPoints.values())
+        y_values = []
+        for i in range(len(nonInt)):
+            value = nonInt[i] * y_values[i] #multiply by the fundamental to get frequency
+            x_values.append(value)
+
+        plt.scatter(x_values, y_values, color='blue', label="Regression of Fundamental Vs. non-int harmonics")
+        plt.xlabel("fundamentals")
+        plt.ylabel("non-integer frequencies")
+        plt.title("Scatter Plot of Dictionary")
+        plt.legend()
+
+        plt.show()
+
 
 
     # method to plot the actual harmonic ratio array of the signal against the predicted ratio array
@@ -822,7 +847,7 @@ class AudioFileProminence:
         return self.source*H
     
     @staticmethod
-    def analyzeTextFile(file_name):
+    def analyzeTextFile(file_name : str) -> NDArray:
         file_entries = []
         current_entries = []
         with open(file_name, "r") as file:
