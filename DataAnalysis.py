@@ -1,5 +1,7 @@
 import math
 from collections import Counter
+import numpy as np
+
 
 
 class DataAnalysis:
@@ -74,10 +76,11 @@ class DataAnalysis:
             print(f"There are {badData} entries that either aren't integer multiples of the fundamental or are duplicates.")
         return listOfNonInt
 
-    def checkDataTextFile(self, sampleValue : float, fileName : str) -> None:
+    def checkDataTextFile(self, sampleValue : float, fileName : str) -> list:
         #Function checks if data is integer multiples and if there are no duplicates
         badData = 0
         closest_values = []
+        nonInt = []
         for i, value in enumerate(self.array):
             #This part checks if it's less than whatever value you set the sampleValue to be 
             if abs(value - round(value)) >= sampleValue:
@@ -88,6 +91,7 @@ class DataAnalysis:
                     with open(f"{fileName}", "a") as f:
                         f.write(f'There\'s a non-integer multiple at entry #{i + 1}. Entry: "{value}"\n')
                     badData += 1
+                    nonInt.append(value)
             else:
                 pass
         #we're going to run the findDuplicates function with the parameter closest_values which is the list of all of the whole numbers or bad decimal data
@@ -106,3 +110,4 @@ class DataAnalysis:
         else:
             with open(f"{fileName}", "a") as f:
                 f.write(f"There are {badData} entries that either aren't integer multiples of the fundamental or are duplicates.\n")
+        return nonInt
