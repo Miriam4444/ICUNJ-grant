@@ -63,16 +63,18 @@ class StringAnalysis:
         #roots1 is the numerator zeros
         #roots2 is the denominator zeros
         #basically im going to look at all the zeros in the denominator and if its in the numerator im going to take it out of the numerator
+        noSingularities = roots1.copy()
         for denominatorRoot in roots2:
             for numeratorRoot in roots1:
                 if denominatorRoot == numeratorRoot:
-                    roots1.remove(numeratorRoot)
-        return roots1
+                    noSingularities.remove(numeratorRoot)
+        return noSingularities
     
     #this method is for testing if there are three individual strings
-    def checkIfCotangentSum(self, maxDifference : float, minInterval : float , maxInterval : float, numPoints : int) -> list:
+    def checkIfCotangentSum(self, maxDifference : float, minInterval : float , maxInterval : float, numPoints : int) -> tuple[list , list]:
         #this is the list that's going to be returned
         closeHarmonics = []
+        rootsFound = []
         roots = self.removeSingularities(roots1= self.findZeros(minInterval= minInterval, maxInterval= maxInterval, numPoints= numPoints, function= self.cotangentNumerator), roots2=self.findZeros(minInterval= minInterval, maxInterval= maxInterval, numPoints= numPoints, function= self.cotangentDenominator))
         #now we're going to iterate through the roots and for each root we're going to divide all of the other roots by it and see if it's close to an integer
         for root1 in roots:
@@ -82,10 +84,14 @@ class StringAnalysis:
                 #check if the remainder is close to an int
                 if difference <= maxDifference:
                     #listOfValidRoots.append([harmonic])
-                    validRoot = harmonic
+                    validRoot = root1
+                    rootsFound.append(harmonic)
             #closeHarmonics.append([root1, listOfValidRoots])
-            closeHarmonics.append(validRoot)
-        return closeHarmonics
+                    closeHarmonics.append(validRoot)
+        #close harmonics are from the calculated cotangent sum, they have a lot of decimals
+        #roots found are from the self.harmonics list aka the one input in the arguments
+        return closeHarmonics, rootsFound
+
     
     def checkIfSeparateStrings(self, maxDifference : float, numOfHarmonics : int) -> list:
         #numOfHarmonics is the amount of harmonics we're going to find
@@ -131,12 +137,13 @@ class StringAnalysis:
 
     def checkIfStrings(self, maxDifference : float) -> list:
         listOfStringHarmonics = []
+        decimal = .5
         for harmonic1 in self.harmonicsList:
             listOfMults = []
             fundamental = harmonic1
             for harmonic2 in self.harmonicsList:
-                possibleMult = harmonic2/harmonic1
-                if isinstance(DataAnalysis.staticCheckIfClose(number= possibleMult, maxDifference= maxDifference), int):
+                possibleMult = harmonic2/fundamental
+                if isinstance(DataAnalysis.staticCheckIfClose(number= possibleMult, maxDifference= maxDifference), int) and fundamental <= harmonic2:
                     listOfMults.append(harmonic2)
             listOfStringHarmonics.append([harmonic1, listOfMults])
         return listOfStringHarmonics
