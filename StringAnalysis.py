@@ -76,20 +76,35 @@ class StringAnalysis:
         closeHarmonics = []
         rootsFound = []
         roots = self.removeSingularities(roots1= self.findZeros(minInterval= minInterval, maxInterval= maxInterval, numPoints= numPoints, function= self.cotangentNumerator), roots2=self.findZeros(minInterval= minInterval, maxInterval= maxInterval, numPoints= numPoints, function= self.cotangentDenominator))
-        #now we're going to iterate through the roots and for each root we're going to divide all of the other roots by it and see if it's close to an integer
-        for root1 in roots:
-            for harmonic in self.harmonicsList:
-                #listOfValidRoots = []
-                difference = np.abs(harmonic - root1)
-                #check if the remainder is close to an int
-                if difference <= maxDifference:
-                    #listOfValidRoots.append([harmonic])
-                    validRoot = root1
-                    rootsFound.append(harmonic)
-            #closeHarmonics.append([root1, listOfValidRoots])
-                    closeHarmonics.append(validRoot)
+        print(roots)
+        for testFundamental in self.harmonicsList:
+            fundamental = testFundamental
+            fundamentalRootsList = []
+            fundamentalRootsList.append([fundamental])
+            fundamentalHarmonicsList = []
+            fundamentalHarmonicsList.append([fundamental])
+            #now we're going to iterate through the roots and for each root we're going to divide all of the other roots by it and see if it's close to an integer
+            fund = roots[0]
+            for i in range(len(roots)):
+                roots[i] = roots[i]/fund
+            #print(roots)
+            for root1 in roots:
+                for harmonic in self.harmonicsList:
+                    harmonic = harmonic/fundamental
+                    #listOfValidRoots = []
+                    difference = np.abs(harmonic - root1)
+                    #check if the remainder is close to an int
+                    if difference <= maxDifference:
+                        #listOfValidRoots.append([harmonic])
+                        validRoot = root1
+                        fundamentalRootsList.append(harmonic)
+                        #closeHarmonics.append([root1, listOfValidRoots])
+                        fundamentalHarmonicsList.append(validRoot)
+            rootsFound.append(fundamentalRootsList)
+            closeHarmonics.append(fundamentalHarmonicsList)
         #close harmonics are from the calculated cotangent sum, they have a lot of decimals
         #roots found are from the self.harmonics list aka the one input in the arguments
+        print("roots are " , roots)
         return closeHarmonics, rootsFound
 
     
@@ -135,9 +150,9 @@ class StringAnalysis:
         return listOfStringHarmonics
     """
 
+    #tests if it's a string
     def checkIfStrings(self, maxDifference : float) -> list:
         listOfStringHarmonics = []
-        decimal = .5
         for harmonic1 in self.harmonicsList:
             listOfMults = []
             fundamental = harmonic1
